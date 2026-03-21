@@ -1,0 +1,30 @@
+{
+  "affiliateCode": "AFF_001",
+  "externalOrderId": "AAA-20260321-0001",
+  "timestamp": 1774051200,
+  "nonce": "8e995f6d-2d26-48d7-85ad-0f19f5f69b27",
+  "buyer": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "phone": "+15550000000",
+    "country": "US",
+    "state": "CA",
+    "city": "Los Angeles",
+    "address1": "123 Main St",
+    "address2": "",
+    "postalCode": "90001"
+  },
+  "totalAmount": 29.99,
+  "currency": "USD",
+  "items": [
+    {
+      "productId": "clean001",
+      "name": "SmartSpray Microfiber Floor Mop",
+      "quantity": 1,
+      "unitPrice": 29.99
+    }
+  ],
+  "returnUrl": "https://aaa.com/order-complete",
+  "signature": "<请按签名规则生成>"
+}

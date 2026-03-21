@@ -119,6 +119,11 @@ If the affiliate has a callback secret configured, the return redirect includes 
 - Hardening plan: `docs/plans/2026-03-16-hardening-upgrade.md`
 - Deployment: `docs/deployment.md`
 - BT Panel deployment: `docs/deployment-bt-panel.md`
+- Partner integration CN: `docs/partner-integration/README.md`
+- Partner business CN: `docs/partner-integration/商务版接入说明.md`
+- Partner Java/CSharp examples: `docs/partner-integration/Java-CSharp-示例.md`
+- Partner Postman guide: `docs/partner-integration/POSTMAN-测试说明.md`
+- Partner sample payload: `docs/partner-integration/examples/intake-request.sample.json`
 - Stripe setup: `docs/stripe-setup.md`
 - Distributor integration: `docs/distributor-integration.md`
 
