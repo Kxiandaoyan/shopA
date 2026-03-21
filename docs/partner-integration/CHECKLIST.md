@@ -19,6 +19,7 @@
 - 已传 `items`
 - 已传 `totalAmount`
 - 已确认最终支付金额以 `totalAmount` 为准
+- 已知晓 Stripe 页面商品名称可能由平台策略统一控制，不一定等于传入商品名
 - 已传 `currency`
 - 已生成唯一 `externalOrderId`
 - 已生成唯一 `nonce`

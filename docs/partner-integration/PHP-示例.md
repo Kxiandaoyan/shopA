@@ -60,6 +60,7 @@ $payload["signature"] = createIntakeSignature($payload, "your-intake-secret");
 
 - 支付金额最终以 `totalAmount` 为准
 - `items` 仅用于订单记录和展示，不要求与我方商城商品库一致
+- Stripe Hosted Checkout 页面上的商品名称由平台按落地域名策略控制，不一定等于这里传入的 `name`
 - 不要把 `signature` 字段本身算进签名
 
 ## 2. 发送下单请求
