@@ -2,6 +2,7 @@ import { LogResult, type OrderStatus, type PaymentStatus } from "@prisma/client"
 import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/logging/audit";
 import { writeRedirectLog } from "@/lib/logging/events";
+import { DIRECT_AFFILIATE_CODE } from "@/lib/storefront/direct-order";
 import { createStripeClient, loadStripeBindingByDomainId } from "@/lib/stripe/client";
 import { applyPaymentState } from "@/lib/stripe/order-state";
 import { mapCheckoutSessionToState } from "@/lib/stripe/session-status";
@@ -65,6 +66,11 @@ export async function resyncOrderWithStripe(
   const order = await db.order.findUnique({
     where: { id: orderId },
     include: {
+      affiliate: {
+        select: {
+          code: true,
+        },
+      },
       items: true,
       landingDomain: true,
       paymentSessions: {
@@ -115,11 +121,16 @@ export async function resyncOrderWithStripe(
     if (
       !sessionMatchesOrderContext(session, {
         orderId: order.id,
+        externalOrderId: order.externalOrderId,
         token: order.token,
         status: order.status,
         totalAmount: Number(order.totalAmount),
         currency: order.currency,
         buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
+        orderMode:
+          order.affiliate.code === DIRECT_AFFILIATE_CODE
+            ? "direct_storefront"
+            : "affiliate_intake",
         landingDomainId: order.landingDomainId,
         landingHostname: order.landingDomain.hostname,
         returnUrl: order.returnUrl,

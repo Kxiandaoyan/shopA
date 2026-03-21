@@ -24,15 +24,23 @@ export function LandingStatus({ order, hasStripeAccount }: LandingStatusProps) {
     <section className="mx-auto max-w-6xl px-6 pb-12 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[2rem] border border-[var(--border)] bg-white/90 p-6 shadow-[var(--shadow)]">
-          <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">Buyer context locked</div>
-          <h2 className="mt-3 text-3xl">Preparing secure checkout for {order.buyerName}</h2>
+          <div className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+            {order.orderMode === "affiliate_intake" ? "Imported buyer context" : "Buyer context locked"}
+          </div>
+          <h2 className="mt-3 text-3xl">
+            Preparing secure checkout for {order.buyerName}
+          </h2>
           <p className="mt-3 max-w-xl text-sm leading-7 text-[var(--muted)]">
-            Shipping details are already attached to this order. The storefront only validates the landing step and then continues to payment.
+            {order.orderMode === "affiliate_intake"
+              ? "This order was imported by an affiliate integration. The buyer data and payable amount are already locked, and this landing page only completes the compliance step before payment."
+              : "Shipping details are already attached to this order. The storefront only validates the landing step and then continues to payment."}
           </p>
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             <div className="rounded-[1.4rem] bg-[var(--accent-soft)]/60 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Order</div>
-              <div className="mt-2 text-sm">{order.orderId}</div>
+              <div className="mt-2 text-sm">
+                {order.orderMode === "affiliate_intake" ? order.externalOrderId : order.orderId}
+              </div>
             </div>
             <div className="rounded-[1.4rem] bg-[var(--accent-soft)]/60 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Amount</div>
@@ -60,6 +68,12 @@ export function LandingStatus({ order, hasStripeAccount }: LandingStatusProps) {
               </div>
             ))}
           </div>
+          {order.orderMode === "affiliate_intake" ? (
+            <p className="mt-5 text-sm leading-7 text-[var(--muted)]">
+              Imported item details are shown for reference only. The final payment amount follows the
+              affiliate order total above.
+            </p>
+          ) : null}
           <p className="mt-5 text-sm leading-7 text-[var(--muted)]">
             Redirecting to payment now. If checkout cannot be opened, the next step will show a clear domain or payment configuration message.
           </p>

@@ -2,6 +2,11 @@
 
 本文档面向接入本平台的代理商技术团队，说明如何完成订单推送、买家跳转、支付结果接收与签名校验。
 
+当前系统的代理商结果通知机制分为两类：
+
+1. 正式业务链路：买家浏览器自动跳回代理商 `returnUrl`
+2. 运维补救链路：管理员可在后台对终态订单手动补发一次 GET 回调
+
 ## 1. 文档目标
 
 代理商接入后，需要完成两段开发：
@@ -19,6 +24,13 @@
 6. 我方首页再自动跳转到 Stripe 支付页
 7. 支付完成后，Stripe 先回到我方站点结果页
 8. 我方记录订单结果后，再自动跳回代理商 `returnUrl`
+
+说明：
+
+- 代理商商品和我方商城商品可以完全不同
+- 代理商商品价格和我方商城价格也可以完全不同
+- 代理商订单最终支付金额以接口中的 `totalAmount` 为准
+- `items` 用于订单记录、展示和审计，不强绑定我方商品库
 
 ## 2. 对接前需要向我方确认的信息
 
@@ -122,6 +134,7 @@ Content-Type: application/json
 - `items` 至少传 1 条
 - 支付金额以接口传入的 `totalAmount` 为准
 - 商品数据用于订单记录，不要求和我方后台商品价格完全一致
+- 即使 `items` 明细合计与 `totalAmount` 不一致，系统也按 `totalAmount` 发起支付
 
 ### 4.4 请求示例
 
@@ -375,6 +388,14 @@ landingUrl
 2. 我方写入本地订单状态
 3. 我方再自动跳转到代理商 `returnUrl`
 
+这就是当前正式业务中的“回调通知”。
+
+说明：
+
+- 这是浏览器跳转式回调，不是独立的服务端 webhook
+- 若代理商已配置 `callbackSecret`，可对跳回参数做 HMAC 验签
+- 管理员后台还支持对终态订单手动补发一次 GET 回跳，作为补救工具
+
 ### 8.1 回跳时始终包含的字段
 
 | 字段 | 说明 |
@@ -530,7 +551,18 @@ def verify_callback(params, secret: str) -> bool:
 5. 对 `orderId` 或 `externalOrderId` 做幂等处理
 6. 成功后再更新代理商自己的订单状态
 
-### 11.3 建议的状态映射
+### 11.3 如果你们需要“服务端通知”怎么理解
+
+当前系统默认不主动向代理商提供独立 webhook。
+
+目前可用的两种结果传递方式是：
+
+1. 正式业务回调：买家浏览器自动跳回 `returnUrl`
+2. 后台补发回调：管理员对终态订单手动补发一次 GET 回调
+
+因此代理商应优先把 `returnUrl` 对应页面设计成既能接收浏览器跳转，也能做签名校验与状态更新。
+
+### 11.4 建议的状态映射
 
 | 我方状态 | 建议含义 |
 | --- | --- |
@@ -586,6 +618,12 @@ def verify_callback(params, secret: str) -> bool:
 
 因为本平台支持代理商侧自定义订单金额，支付价格以下单接口中的 `totalAmount` 为准。
 
+### 14.6 现在是否有独立的服务端回调通知？
+
+当前默认没有独立 webhook。
+
+正式链路中，结果通知方式是买家浏览器自动跳回 `returnUrl`。另外管理员后台支持手动补发一次 GET 回调，便于补救和重试。
+
 ## 15. 我方建议的最小开发清单
 
 代理商至少完成以下功能：
@@ -606,5 +644,6 @@ def verify_callback(params, secret: str) -> bool:
 - [宝塔部署文档](/D:/Code_Space/shopA/docs/deployment-bt-panel.md)
 - [商务版接入说明](/D:/Code_Space/shopA/docs/partner-integration/商务版接入说明.md)
 - [Java CSharp 示例](/D:/Code_Space/shopA/docs/partner-integration/Java-CSharp-示例.md)
+- [PHP 示例](/D:/Code_Space/shopA/docs/partner-integration/PHP-示例.md)
 - [Postman 测试说明](/D:/Code_Space/shopA/docs/partner-integration/POSTMAN-测试说明.md)
 - [示例请求 JSON](/D:/Code_Space/shopA/docs/partner-integration/examples/intake-request.sample.json)

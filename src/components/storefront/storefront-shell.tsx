@@ -35,6 +35,7 @@ export function StorefrontShell({
   const directCheckoutReason = !domainId
     ? "This domain is not configured in the admin backend yet."
     : undefined;
+  const hideCatalogForImportedOrder = orderContext?.orderMode === "affiliate_intake";
 
   return (
     <main className={`min-h-screen ${theme.shellClassName}`}>
@@ -43,17 +44,21 @@ export function StorefrontShell({
         <div>
           <div className="text-xs uppercase tracking-[0.24em] opacity-60">{theme.eyebrow}</div>
           <h1 className="mt-3 max-w-3xl text-4xl leading-tight md:text-5xl">{theme.title}</h1>
-          <p className="mt-3 max-w-2xl text-base leading-8 opacity-70">{theme.subtitle}</p>
+          <p className="mt-3 max-w-2xl text-base leading-8 opacity-70">
+            {hideCatalogForImportedOrder
+              ? "Secure payment is being prepared for an imported affiliate order on this landing domain."
+              : theme.subtitle}
+          </p>
         </div>
       </section>
       {token ? <LandingStatus order={orderContext} hasStripeAccount={hasStripeAccount} /> : null}
-      {template === "B" ? (
-        <TemplateB products={products} />
-      ) : template === "C" ? (
-        <TemplateC products={products} />
-      ) : (
-        <TemplateA products={products} />
-      )}
+      {!hideCatalogForImportedOrder
+        ? template === "B"
+          ? <TemplateB products={products} />
+          : template === "C"
+            ? <TemplateC products={products} />
+            : <TemplateA products={products} />
+        : null}
       {!orderContext ? (
         <DirectCheckoutPanel
           products={products}
@@ -62,7 +67,9 @@ export function StorefrontShell({
         />
       ) : null}
       <section className="mx-auto max-w-6xl px-6 pb-12 text-sm opacity-70 lg:px-10">
-        Direct purchases create an order on this storefront first. Affiliate traffic keeps the existing landing validation and server-side redirect flow.
+        {hideCatalogForImportedOrder
+          ? "Affiliate traffic uses the storefront as a payment bridge. Product catalog content is hidden here so the imported order amount stays authoritative."
+          : "Direct purchases create an order on this storefront first. Affiliate traffic keeps the existing landing validation and server-side redirect flow."}
       </section>
     </main>
   );

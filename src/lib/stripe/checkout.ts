@@ -1,9 +1,51 @@
 import { PaymentStatus, Prisma, OrderStatus } from "@prisma/client";
+import Stripe from "stripe";
 import { db } from "@/lib/db";
 import type { LandingOrderContext } from "@/lib/orders/order-context";
 import { writeRedirectLog } from "@/lib/logging/events";
 import { createStripeClient, loadStripeBindingByDomainId } from "@/lib/stripe/client";
 import { buildOrigin } from "@/lib/stripe/urls";
+
+export function buildHostedCheckoutLineItems(
+  order: LandingOrderContext,
+): Stripe.Checkout.SessionCreateParams.LineItem[] {
+  if (order.orderMode === "affiliate_intake") {
+    const productName =
+      order.items.length === 1
+        ? order.items[0].productName
+        : `Affiliate order ${order.externalOrderId}`;
+
+    return [
+      {
+        quantity: 1,
+        price_data: {
+          currency: order.currency.toLowerCase(),
+          product_data: {
+            name: productName,
+          },
+          unit_amount: Math.round(order.totalAmount * 100),
+        },
+      },
+    ];
+  }
+
+  return order.items.map((item) => ({
+    quantity: item.quantity,
+    price_data: {
+      currency: order.currency.toLowerCase(),
+      product_data: {
+        name: item.productName,
+      },
+      unit_amount: Math.round(item.unitPrice * 100),
+    },
+  }));
+}
+
+function sumOrderItemAmount(order: LandingOrderContext) {
+  return Number(
+    order.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0).toFixed(2),
+  );
+}
 
 export async function createHostedCheckoutSession(input: {
   order: LandingOrderContext;
@@ -57,24 +99,21 @@ export async function createHostedCheckoutSession(input: {
   }
 
   const origin = buildOrigin(input.host, input.protocol ?? "https");
+  const lineItems = buildHostedCheckoutLineItems(input.order);
+  const itemSubtotal = sumOrderItemAmount(input.order);
+  const pricingMode =
+    input.order.orderMode === "affiliate_intake" ? "affiliate_total" : "direct_itemized";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     success_url: `${origin}/payment/success?token=${input.order.token}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/payment/cancel?token=${input.order.token}&session_id={CHECKOUT_SESSION_ID}`,
-    line_items: input.order.items.map((item) => ({
-      quantity: item.quantity,
-      price_data: {
-        currency: input.order.currency.toLowerCase(),
-        product_data: {
-          name: item.productName,
-        },
-        unit_amount: Math.round(item.unitPrice * 100),
-      },
-    })),
+    line_items: lineItems,
     metadata: {
       orderId: input.order.orderId,
       landingDomainId: input.order.landingDomainId,
       token: input.order.token,
+      orderMode: input.order.orderMode,
+      pricingMode,
     },
   });
 
@@ -98,6 +137,10 @@ export async function createHostedCheckoutSession(input: {
         metadata: {
           accountLabel: stripeBinding.accountLabel,
           checkoutUrl: session.url,
+          pricingMode,
+          orderMode: input.order.orderMode,
+          orderTotalAmount: input.order.totalAmount,
+          itemSubtotal,
         },
       },
     }),
@@ -111,6 +154,9 @@ export async function createHostedCheckoutSession(input: {
     metadata: {
       stripeSessionId: session.id,
       stripeAccountId: stripeBinding.stripeAccountId,
+      pricingMode,
+      orderTotalAmount: input.order.totalAmount,
+      itemSubtotal,
     },
   });
 

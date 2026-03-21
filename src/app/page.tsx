@@ -18,8 +18,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const token = typeof params.token === "string" ? params.token : undefined;
   const domainContext = await loadDomainContext(host);
-  const products = await getStorefrontProducts();
   const orderContext = token ? await loadOrderContextByToken(token, host) : null;
+  const products =
+    orderContext?.orderMode === "affiliate_intake" ? [] : await getStorefrontProducts();
 
   if (token && orderContext) {
     await markLandingVisited(orderContext.orderId, orderContext.landingDomainId, `https://${host}/?token=${token}`);

@@ -5,11 +5,13 @@ import { sessionMatchesOrderContext } from "@/lib/stripe/session-integrity";
 
 const order: LandingOrderContext = {
   orderId: "ord_123",
+  externalOrderId: "AFF-20260321-001",
   token: "tok_123",
   status: "DRAFT",
   totalAmount: 99,
   currency: "USD",
   buyerName: "Jane Doe",
+  orderMode: "affiliate_intake",
   landingDomainId: "dom_123",
   landingHostname: "pay.example.com",
   returnUrl: "https://affiliate.example.com/return",

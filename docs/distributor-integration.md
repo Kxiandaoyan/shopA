@@ -9,6 +9,8 @@ Distributors integrate in two places:
 
 The intake request should always be signed with the affiliate's own intake secret. The callback redirect should also be verified when `sig` is present.
 
+Affiliate goods and prices do not need to match the storefront catalog. For affiliate intake orders, the final Stripe payment amount follows `totalAmount`; imported `items` are retained for recordkeeping and display.
+
 ## 1. Intake API
 
 ### Endpoint
@@ -71,6 +73,7 @@ Reference implementation:
 - `returnUrl` must already be allowlisted in the admin backend
 - buyer payload must include the full shipping address
 - each affiliate must use its own intake secret configured in the admin backend
+- `totalAmount` is the authoritative payment amount for affiliate intake orders
 
 ### Node.js Signing Example
 
@@ -135,6 +138,8 @@ Redirect the buyer to `landingUrl`.
 ## 2. Callback Redirect
 
 After Stripe finishes, the buyer returns to the assigned landing domain first. Only after the local result is recorded does the app redirect to your `returnUrl`.
+
+This redirect is the primary production callback mechanism. The system does not currently provide a separate automatic server-to-server webhook for affiliates by default. The admin backend can manually resend a GET callback for a terminal order when operational recovery is needed.
 
 ### Always Included
 

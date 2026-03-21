@@ -5,7 +5,7 @@ import { createOrderToken } from "@/lib/intake/token";
 import { writeRedirectLog } from "@/lib/logging/events";
 import { loadCatalogSource } from "@/lib/products/catalog";
 
-const DIRECT_AFFILIATE_CODE = "STORE_DIRECT";
+export const DIRECT_AFFILIATE_CODE = "STORE_DIRECT";
 const DIRECT_AFFILIATE_NAME = "Direct Storefront Orders";
 
 export type DirectOrderInput = {

@@ -17,6 +17,7 @@
 - 已传完整 `buyer` 收货地址
 - 已传 `items`
 - 已传 `totalAmount`
+- 已确认最终支付金额以 `totalAmount` 为准
 - 已传 `currency`
 - 已生成唯一 `externalOrderId`
 - 已生成唯一 `nonce`
@@ -34,6 +35,7 @@
 - 已接收 `orderId`
 - 已接收 `externalOrderId`
 - 已接收 `status`
+- 已理解正式通知方式是浏览器自动跳回 `returnUrl`
 - 如果启用签名，已校验 `sig`
 - 如果启用签名，已校验 `ts`
 - 已对回跳做幂等处理

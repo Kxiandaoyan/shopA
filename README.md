@@ -122,6 +122,7 @@ If the affiliate has a callback secret configured, the return redirect includes 
 - Partner integration CN: `docs/partner-integration/README.md`
 - Partner business CN: `docs/partner-integration/商务版接入说明.md`
 - Partner Java/CSharp examples: `docs/partner-integration/Java-CSharp-示例.md`
+- Partner PHP example: `docs/partner-integration/PHP-示例.md`
 - Partner Postman guide: `docs/partner-integration/POSTMAN-测试说明.md`
 - Partner sample payload: `docs/partner-integration/examples/intake-request.sample.json`
 - Stripe setup: `docs/stripe-setup.md`
