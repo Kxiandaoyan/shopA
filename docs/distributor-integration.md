@@ -140,7 +140,58 @@ Redirect the buyer to `landingUrl`.
 
 After Stripe finishes, the buyer returns to the assigned landing domain first. Only after the local result is recorded does the app redirect to your `returnUrl`.
 
+This is still a two-step redirect flow, but there is no storefront checkout form in the middle for affiliate orders:
+
+1. Buyer lands on the assigned landing domain with `?token=...`
+2. The landing page validates the token and auto-forwards almost immediately
+3. The server creates or reuses a Stripe Checkout Session
+4. The browser is redirected straight into Stripe Hosted Checkout
+
+After Stripe finishes, the platform records the result on the landing domain first, then redirects the browser back to your `returnUrl`.
+
 This browser redirect remains active in production. The system also sends a separate async webhook `POST` request to each configured affiliate webhook endpoint for terminal order states. The admin backend can manually resend both the browser callback and the async webhook when operational recovery is needed.
+
+### Always Included
+
+- `affiliateCode`
+- `orderId`
+- `externalOrderId`
+- `status`
+
+Example:
+
+```text
+https://aaa.com/order-complete?affiliateCode=AFF_001&orderId=ord_123&externalOrderId=AAA-20260316-0001&status=paid
+```
+
+### Included When Callback Secret Is Configured
+
+- `ts`
+- `sig`
+
+Example:
+
+```text
+https://aaa.com/order-complete?affiliateCode=AFF_001&orderId=ord_123&externalOrderId=AAA-20260316-0001&status=paid&ts=1773648000&sig=abcdef...
+```
+
+Reference implementation:
+
+- [callback-signature.ts](/D:/Code_Space/shopA/src/lib/affiliate/callback-signature.ts)
+
+### Callback Signature Rule
+
+Sign this exact string:
+
+```text
+affiliateCode.orderId.externalOrderId.status.ts
+```
+
+Then compute:
+
+```text
+HMAC-SHA256(raw_string, callback_secret)
+```
 
 ## 3. Async Webhook
 
@@ -185,49 +236,49 @@ Then compute:
 HMAC-SHA256(raw_string, callback_secret)
 ```
 
-### Always Included
+### Example JSON
 
-- `affiliateCode`
-- `orderId`
-- `externalOrderId`
-- `status`
-
-Example:
-
-```text
-https://aaa.com/order-complete?affiliateCode=AFF_001&orderId=ord_123&externalOrderId=AAA-20260316-0001&status=paid
+```json
+{
+  "event": "order.status_changed",
+  "affiliateCode": "AFF_001",
+  "orderId": "ord_123",
+  "externalOrderId": "AAA-20260316-0001",
+  "status": "paid",
+  "amount": 29.99,
+  "currency": "USD",
+  "ts": "1773648000",
+  "landingDomain": "pay-a1.example.com",
+  "buyer": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "phone": "+15550000000",
+    "country": "US",
+    "state": "CA",
+    "city": "Los Angeles",
+    "address1": "123 Main St",
+    "address2": "",
+    "postalCode": "90001"
+  },
+  "items": [
+    {
+      "productId": "clean001",
+      "productName": "SmartSpray Microfiber Floor Mop",
+      "quantity": 1,
+      "unitPrice": 29.99
+    }
+  ],
+  "sig": "<optional>"
+}
 ```
 
-### Included When Callback Secret Is Configured
-
-- `ts`
-- `sig`
-
-Example:
-
-```text
-https://aaa.com/order-complete?affiliateCode=AFF_001&orderId=ord_123&externalOrderId=AAA-20260316-0001&status=paid&ts=1773648000&sig=abcdef...
-```
-
-Reference implementation:
+Reference implementations:
 
 - [callback-signature.ts](/D:/Code_Space/shopA/src/lib/affiliate/callback-signature.ts)
+- [async-webhook-delivery.ts](/D:/Code_Space/shopA/src/lib/affiliate/async-webhook-delivery.ts)
 
-### Callback Signature Rule
-
-Sign this exact string:
-
-```text
-affiliateCode.orderId.externalOrderId.status.ts
-```
-
-Then compute:
-
-```text
-HMAC-SHA256(raw_string, callback_secret)
-```
-
-## 3. Verify Callback Signature
+## 4. Verify Callback Signature
 
 ### Node.js
 

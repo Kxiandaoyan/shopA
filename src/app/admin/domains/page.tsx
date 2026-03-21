@@ -40,6 +40,7 @@ export default async function AdminDomainsPage() {
                 <th className="px-5 py-4">标签</th>
                 <th className="px-5 py-4">所属分销商</th>
                 <th className="px-5 py-4">模板</th>
+                <th className="px-5 py-4">Stripe 名称策略</th>
                 <th className="px-5 py-4">Stripe</th>
                 <th className="px-5 py-4">Webhook</th>
                 <th className="px-5 py-4">状态</th>
@@ -48,7 +49,7 @@ export default async function AdminDomainsPage() {
             <tbody>
               {domains.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-6 text-slate-400" colSpan={7}>
+                  <td className="px-5 py-6 text-slate-400" colSpan={8}>
                     暂无域名数据。
                   </td>
                 </tr>
@@ -59,6 +60,13 @@ export default async function AdminDomainsPage() {
                     <td className="px-5 py-4">{domain.label}</td>
                     <td className="px-5 py-4">{domain.affiliateName}</td>
                     <td className="px-5 py-4">{domain.templateCode}</td>
+                    <td className="px-5 py-4">
+                      {domain.affiliateCheckoutNameMode === "FIXED"
+                        ? `固定: ${domain.affiliateCheckoutFixedName ?? "未设置"}`
+                        : domain.affiliateCheckoutNameMode === "SOURCE_PRODUCT"
+                          ? "来源真实商品名"
+                          : "随机本站商品名"}
+                    </td>
                     <td className="px-5 py-4">
                       {domain.stripeLabel} / {domain.stripeActive ? "已启用" : "未启用"}
                     </td>

@@ -19,7 +19,7 @@ The recommended production topology is:
 
 ## Environment Requirements
 
-- Node.js 24+
+- Node.js 22+ LTS
 - npm 11+
 - PostgreSQL 15+
 - Public HTTPS domains
@@ -49,15 +49,16 @@ Per-domain Stripe secrets should not be stored as flat environment variables for
 2. Deploy the Next.js app to a Node-compatible host.
 3. Point all landing domains to the same application ingress.
 4. Configure TLS for every landing domain.
-5. Run Prisma migrations.
+5. Apply the database schema.
 6. Seed the initial product catalog from the root product source TXT file.
 7. Create the super admin account.
 8. Add affiliates, domain pools, and domain-specific Stripe credentials.
-9. Configure one intake signing secret and one callback signing secret per affiliate.
-10. Configure allowed affiliate `returnUrl` entries.
-11. Tell each affiliate how to verify callback signatures.
-12. Register Stripe webhooks for each Stripe account using its own `/api/stripe/webhooks/{stripeAccountId}` path.
-13. Verify the full intake -> landing -> checkout -> return flow on each domain.
+9. For each landing domain, choose its Stripe checkout display-name strategy.
+10. Configure one intake signing secret and one callback signing secret per affiliate.
+11. Configure allowed affiliate `returnUrl` entries.
+12. Tell each affiliate how to verify callback signatures.
+13. Register Stripe webhooks for each Stripe account using its own `/api/stripe/webhooks/{stripeAccountId}` path.
+14. Verify the full intake -> landing -> checkout -> return flow on each domain.
 
 ## Domain Routing
 
@@ -66,6 +67,7 @@ All landing domains resolve to the same app, but the app must inspect the reques
 - which tenant domain record is active
 - which storefront template to render
 - which Stripe credential set to use
+- which Stripe checkout display-name strategy to use for affiliate orders
 
 If no template is configured for a domain, the app must use template `A`.
 
@@ -92,7 +94,7 @@ npm run db:push
 npm run seed:products
 ```
 
-If you later maintain PostgreSQL migration files, replace `npm run db:push` with:
+Current installation flow uses `db push`. If you later maintain formal PostgreSQL migration files for release deployment, replace `npm run db:push` with:
 
 ```bash
 npx prisma migrate deploy
@@ -165,6 +167,12 @@ npm run db:push
 ```bash
 npm run seed:products
 ```
+
+6. In the admin backend, configure each landing domain's Stripe checkout display-name strategy:
+
+- `CATALOG_RANDOM`: stable pseudo-random storefront product name
+- `FIXED`: one fixed name for that domain
+- `SOURCE_PRODUCT`: first non-empty imported product name
 
 ## Reverse Proxy Notes
 

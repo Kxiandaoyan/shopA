@@ -41,6 +41,24 @@ For each landing domain, store:
 - account label for operator clarity
 - active / inactive status
 
+## Affiliate Checkout Display Name Strategy
+
+Each landing domain can separately control what name is shown on Stripe Hosted Checkout for affiliate orders.
+
+Available modes:
+
+- `CATALOG_RANDOM`: pick a stable pseudo-random name from the local storefront catalog
+- `FIXED`: always show one fixed name configured in the admin backend
+- `SOURCE_PRODUCT`: show the imported product name received from the affiliate intake payload
+
+Notes:
+
+- this only changes the display name on Stripe
+- it does not change `totalAmount`
+- it does not change local order items, logs, or webhook payloads
+- direct storefront orders remain itemized from local catalog products
+- `SOURCE_PRODUCT` currently uses the first non-empty imported item name
+
 ## Checkout Return URLs
 
 For each payment session:

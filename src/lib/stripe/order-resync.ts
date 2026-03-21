@@ -134,6 +134,11 @@ export async function resyncOrderWithStripe(
         landingDomainId: order.landingDomainId,
         landingHostname: order.landingDomain.hostname,
         returnUrl: order.returnUrl,
+        affiliateCheckoutNameMode: order.landingDomain.affiliateCheckoutNameMode as
+          | "FIXED"
+          | "CATALOG_RANDOM"
+          | "SOURCE_PRODUCT",
+        affiliateCheckoutFixedName: order.landingDomain.affiliateCheckoutFixedName,
         items: order.items.map((item) => ({
           id: item.id,
           productName: item.productName,

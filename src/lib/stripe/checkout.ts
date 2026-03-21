@@ -2,18 +2,65 @@ import { PaymentStatus, Prisma, OrderStatus } from "@prisma/client";
 import Stripe from "stripe";
 import { db } from "@/lib/db";
 import type { LandingOrderContext } from "@/lib/orders/order-context";
+import { getStorefrontProducts } from "@/lib/products/catalog";
 import { writeRedirectLog } from "@/lib/logging/events";
+import { normalizeAffiliateCheckoutNameMode } from "@/lib/stripe/checkout-name-mode";
 import { createStripeClient, loadStripeBindingByDomainId } from "@/lib/stripe/client";
 import { buildOrigin } from "@/lib/stripe/urls";
 
-export function buildHostedCheckoutLineItems(
+const DEFAULT_AFFILIATE_CHECKOUT_NAME = "Store order";
+const DEFAULT_SOURCE_PRODUCT_NAME = "Imported item";
+
+function selectStableCatalogName(order: LandingOrderContext, names: string[]) {
+  if (names.length === 0) {
+    return DEFAULT_AFFILIATE_CHECKOUT_NAME;
+  }
+
+  const seed = `${order.orderId}:${order.externalOrderId}:${order.token}`;
+  let hash = 0;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+
+  return names[hash % names.length] ?? DEFAULT_AFFILIATE_CHECKOUT_NAME;
+}
+
+function resolveSourceProductName(order: LandingOrderContext) {
+  return (
+    order.items
+      .map((item) => item.productName.trim())
+      .find((name) => name.length > 0) ?? DEFAULT_SOURCE_PRODUCT_NAME
+  );
+}
+
+async function resolveAffiliateCheckoutProductName(order: LandingOrderContext) {
+  switch (normalizeAffiliateCheckoutNameMode(order.affiliateCheckoutNameMode)) {
+    case "FIXED":
+      return order.affiliateCheckoutFixedName?.trim() || DEFAULT_AFFILIATE_CHECKOUT_NAME;
+    case "SOURCE_PRODUCT":
+      return resolveSourceProductName(order);
+    case "CATALOG_RANDOM":
+    default:
+      try {
+        const storefrontProducts = await getStorefrontProducts(24);
+        return selectStableCatalogName(
+          order,
+          storefrontProducts
+            .map((product) => product.name.trim())
+            .filter((name) => name.length > 0),
+        );
+      } catch {
+        return DEFAULT_AFFILIATE_CHECKOUT_NAME;
+      }
+  }
+}
+
+export async function buildHostedCheckoutLineItems(
   order: LandingOrderContext,
-): Stripe.Checkout.SessionCreateParams.LineItem[] {
+): Promise<Stripe.Checkout.SessionCreateParams.LineItem[]> {
   if (order.orderMode === "affiliate_intake") {
-    const productName =
-      order.items.length === 1
-        ? order.items[0].productName
-        : `Affiliate order ${order.externalOrderId}`;
+    const productName = await resolveAffiliateCheckoutProductName(order);
 
     return [
       {
@@ -99,7 +146,7 @@ export async function createHostedCheckoutSession(input: {
   }
 
   const origin = buildOrigin(input.host, input.protocol ?? "https");
-  const lineItems = buildHostedCheckoutLineItems(input.order);
+  const lineItems = await buildHostedCheckoutLineItems(input.order);
   const itemSubtotal = sumOrderItemAmount(input.order);
   const pricingMode =
     input.order.orderMode === "affiliate_intake" ? "affiliate_total" : "direct_itemized";
@@ -139,6 +186,10 @@ export async function createHostedCheckoutSession(input: {
           checkoutUrl: session.url,
           pricingMode,
           orderMode: input.order.orderMode,
+          affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
+            input.order.affiliateCheckoutNameMode,
+          ),
+          affiliateCheckoutFixedName: input.order.affiliateCheckoutFixedName,
           orderTotalAmount: input.order.totalAmount,
           itemSubtotal,
         },
@@ -155,6 +206,9 @@ export async function createHostedCheckoutSession(input: {
       stripeSessionId: session.id,
       stripeAccountId: stripeBinding.stripeAccountId,
       pricingMode,
+      affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
+        input.order.affiliateCheckoutNameMode,
+      ),
       orderTotalAmount: input.order.totalAmount,
       itemSubtotal,
     },

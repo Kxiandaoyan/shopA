@@ -1,6 +1,10 @@
 import { OrderStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { DIRECT_AFFILIATE_CODE } from "@/lib/storefront/direct-order";
+import {
+  normalizeAffiliateCheckoutNameMode,
+  type AffiliateCheckoutNameMode,
+} from "@/lib/stripe/checkout-name-mode";
 
 export type OrderMode = "affiliate_intake" | "direct_storefront";
 
@@ -16,6 +20,8 @@ export type LandingOrderContext = {
   landingDomainId: string;
   landingHostname: string;
   returnUrl: string | null;
+  affiliateCheckoutNameMode: AffiliateCheckoutNameMode;
+  affiliateCheckoutFixedName: string | null;
   items: Array<{
     id: string;
     productName: string;
@@ -61,6 +67,10 @@ export async function loadOrderContextByToken(token: string, host?: string) {
     landingDomainId: order.landingDomainId,
     landingHostname: order.landingDomain.hostname,
     returnUrl: order.returnUrl,
+    affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
+      order.landingDomain.affiliateCheckoutNameMode,
+    ),
+    affiliateCheckoutFixedName: order.landingDomain.affiliateCheckoutFixedName,
     items: order.items.map((item) => ({
       id: item.id,
       productName: item.productName,

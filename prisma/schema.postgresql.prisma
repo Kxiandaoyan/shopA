@@ -86,18 +86,20 @@ model AffiliateMembership {
 }
 
 model LandingDomain {
-  id           String           @id @default(cuid())
-  hostname     String           @unique
-  label        String
-  isActive     Boolean          @default(true)
-  affiliateId  String?
-  affiliate    Affiliate?       @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
-  stripeAccount StripeAccount?
-  template     DomainTemplate?
-  orders       Order[]
-  redirectLogs RedirectLog[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id                        String                    @id @default(cuid())
+  hostname                  String                    @unique
+  label                     String
+  isActive                  Boolean                   @default(true)
+  affiliateId               String?
+  affiliate                 Affiliate?                @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
+  affiliateCheckoutNameMode String                    @default("CATALOG_RANDOM")
+  affiliateCheckoutFixedName String?
+  stripeAccount             StripeAccount?
+  template                  DomainTemplate?
+  orders                    Order[]
+  redirectLogs              RedirectLog[]
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
 }
 
 model DomainTemplate {

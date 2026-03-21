@@ -2,6 +2,10 @@ import { OrderStatus } from "@prisma/client";
 import { buildAdminAuditWhere, type AdminAuditFilters } from "@/lib/admin/audit-filters";
 import { buildAdminLogWhere, type AdminLogFilters } from "@/lib/admin/log-filters";
 import { db } from "@/lib/db";
+import {
+  normalizeAffiliateCheckoutNameMode,
+  type AffiliateCheckoutNameMode,
+} from "@/lib/stripe/checkout-name-mode";
 import { resolveStorefrontTemplate } from "@/lib/storefront/template-resolver";
 
 const DIRECT_AFFILIATE_CODE = "STORE_DIRECT";
@@ -86,6 +90,10 @@ export async function loadAdminDomainSummaries() {
       affiliateId: domain.affiliateId,
       affiliateName: domain.affiliate?.name ?? "未分配",
       templateCode: resolveStorefrontTemplate(domain.template?.templateCode),
+      affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
+        domain.affiliateCheckoutNameMode,
+      ) as AffiliateCheckoutNameMode,
+      affiliateCheckoutFixedName: domain.affiliateCheckoutFixedName,
       stripeAccountId: domain.stripeAccount?.id ?? null,
       stripeLabel: domain.stripeAccount?.accountLabel ?? "未配置",
       stripeActive: domain.stripeAccount?.isActive ?? false,

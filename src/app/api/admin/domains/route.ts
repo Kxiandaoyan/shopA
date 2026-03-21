@@ -39,12 +39,22 @@ export async function POST(request: Request) {
     update: {
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
+      affiliateCheckoutFixedName:
+        parsed.data.affiliateCheckoutNameMode === "FIXED"
+          ? parsed.data.affiliateCheckoutFixedName?.trim() || null
+          : null,
       isActive: parsed.data.isActive,
     },
     create: {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
+      affiliateCheckoutFixedName:
+        parsed.data.affiliateCheckoutNameMode === "FIXED"
+          ? parsed.data.affiliateCheckoutFixedName?.trim() || null
+          : null,
       isActive: parsed.data.isActive,
     },
   });
@@ -103,6 +113,11 @@ export async function PATCH(request: Request) {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
+      affiliateCheckoutFixedName:
+        parsed.data.affiliateCheckoutNameMode === "FIXED"
+          ? parsed.data.affiliateCheckoutFixedName?.trim() || null
+          : null,
       isActive: parsed.data.isActive,
     },
   });

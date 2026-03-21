@@ -15,6 +15,8 @@ const order: LandingOrderContext = {
   landingDomainId: "dom_123",
   landingHostname: "pay.example.com",
   returnUrl: "https://affiliate.example.com/return",
+  affiliateCheckoutNameMode: "CATALOG_RANDOM",
+  affiliateCheckoutFixedName: null,
   items: [],
 };
 

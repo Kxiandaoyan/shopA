@@ -21,6 +21,8 @@ type DomainSummary = {
   affiliateId: string | null;
   affiliateName: string;
   templateCode: "A" | "B" | "C";
+  affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
+  affiliateCheckoutFixedName: string | null;
   stripeLabel: string;
   stripeActive: boolean;
 };
@@ -55,6 +57,8 @@ type DomainFormState = {
   label: string;
   affiliateId: string;
   templateCode: string;
+  affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
+  affiliateCheckoutFixedName: string;
   isActive: boolean;
   editMode: boolean;
 };
@@ -98,6 +102,8 @@ const emptyDomainForm = (): DomainFormState => ({
   label: "",
   affiliateId: "",
   templateCode: "",
+  affiliateCheckoutNameMode: "CATALOG_RANDOM",
+  affiliateCheckoutFixedName: "",
   isActive: true,
   editMode: false,
 });
@@ -108,6 +114,8 @@ const buildDomainForm = (domain: DomainSummary): DomainFormState => ({
   label: domain.label,
   affiliateId: domain.affiliateId ?? "",
   templateCode: domain.templateCode,
+  affiliateCheckoutNameMode: domain.affiliateCheckoutNameMode,
+  affiliateCheckoutFixedName: domain.affiliateCheckoutFixedName ?? "",
   isActive: domain.isActive,
   editMode: true,
 });
@@ -326,6 +334,11 @@ export function AdminConfigPanel({
                   label: domainForm.label,
                   affiliateId: domainForm.affiliateId || null,
                   templateCode: domainForm.templateCode || null,
+                  affiliateCheckoutNameMode: domainForm.affiliateCheckoutNameMode,
+                  affiliateCheckoutFixedName:
+                    domainForm.affiliateCheckoutNameMode === "FIXED"
+                      ? domainForm.affiliateCheckoutFixedName
+                      : null,
                   isActive: domainForm.isActive,
                 },
               );
@@ -409,6 +422,35 @@ export function AdminConfigPanel({
               <option value="B">模板 B</option>
               <option value="C">模板 C</option>
             </select>
+            <select
+              value={domainForm.affiliateCheckoutNameMode}
+              onChange={(event) =>
+                setDomainForm((current) => ({
+                  ...current,
+                  affiliateCheckoutNameMode: event.target.value as DomainFormState["affiliateCheckoutNameMode"],
+                  affiliateCheckoutFixedName:
+                    event.target.value === "FIXED" ? current.affiliateCheckoutFixedName : "",
+                }))
+              }
+              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+            >
+              <option value="CATALOG_RANDOM">Stripe 名称: 随机本站商品名</option>
+              <option value="FIXED">Stripe 名称: 固定名称</option>
+              <option value="SOURCE_PRODUCT">Stripe 名称: 来源商品真实名称</option>
+            </select>
+            {domainForm.affiliateCheckoutNameMode === "FIXED" ? (
+              <input
+                value={domainForm.affiliateCheckoutFixedName}
+                onChange={(event) =>
+                  setDomainForm((current) => ({
+                    ...current,
+                    affiliateCheckoutFixedName: event.target.value,
+                  }))
+                }
+                placeholder="固定展示名称，例如 Store order"
+                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+              />
+            ) : null}
             <label className="flex items-center gap-3 text-sm text-slate-300">
               <input
                 type="checkbox"
@@ -419,6 +461,10 @@ export function AdminConfigPanel({
               />
               启用该域名
             </label>
+            <div className="space-y-2 text-xs text-slate-400">
+              <p>这里控制分销订单进入 Stripe Hosted Checkout 时显示的商品名称，不影响最终支付金额。</p>
+              <p>固定名称适合统一展示；随机本站商品名适合隐藏真实来源；真实名称则直接使用 intake 传入商品名。</p>
+            </div>
           </div>
 
           <button

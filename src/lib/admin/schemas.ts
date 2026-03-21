@@ -12,7 +12,22 @@ export const domainAdminSchema = z.object({
   label: z.string().trim().min(2),
   affiliateId: z.string().trim().optional().nullable(),
   templateCode: z.enum(["A", "B", "C"]).optional().nullable(),
+  affiliateCheckoutNameMode: z
+    .enum(["FIXED", "CATALOG_RANDOM", "SOURCE_PRODUCT"])
+    .default("CATALOG_RANDOM"),
+  affiliateCheckoutFixedName: z.string().trim().max(120).optional().nullable(),
   isActive: z.boolean().default(true),
+}).superRefine((value, ctx) => {
+  if (
+    value.affiliateCheckoutNameMode === "FIXED" &&
+    (!value.affiliateCheckoutFixedName || value.affiliateCheckoutFixedName.trim().length < 2)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["affiliateCheckoutFixedName"],
+      message: "固定名称至少需要 2 个字符。",
+    });
+  }
 });
 
 export const returnUrlAdminSchema = z.object({
