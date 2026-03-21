@@ -248,6 +248,7 @@ export function OrderDetailView({ detail, scope }: OrderDetailViewProps) {
                     orderId={detail.id}
                     orderStatus={detail.status}
                     returnUrl={detail.returnUrl}
+                    asyncWebhookEndpointCount={detail.affiliate.webhookEndpointCount}
                   />
                 </div>
                 <OrderNotePanel orderId={detail.id} notes={detail.internalNotes} />

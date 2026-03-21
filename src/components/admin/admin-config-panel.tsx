@@ -10,6 +10,7 @@ type AffiliateSummary = {
   isActive: boolean;
   domainCount: number;
   returnUrlCount: number;
+  webhookEndpointCount: number;
 };
 
 type DomainSummary = {
@@ -36,6 +37,7 @@ type AdminConfigPanelProps = {
   affiliates: AffiliateSummary[];
   domains: DomainSummary[];
   returnUrls: ReturnUrlSummary[];
+  webhookEndpoints: ReturnUrlSummary[];
 };
 
 type AffiliateFormState = {
@@ -58,6 +60,14 @@ type DomainFormState = {
 };
 
 type ReturnUrlFormState = {
+  id?: string;
+  affiliateId: string;
+  url: string;
+  isActive: boolean;
+  editMode: boolean;
+};
+
+type WebhookEndpointFormState = {
   id?: string;
   affiliateId: string;
   url: string;
@@ -117,6 +127,21 @@ const buildReturnUrlForm = (entry: ReturnUrlSummary): ReturnUrlFormState => ({
   editMode: true,
 });
 
+const buildEmptyWebhookEndpointForm = (defaultAffiliateId: string): WebhookEndpointFormState => ({
+  affiliateId: defaultAffiliateId,
+  url: "",
+  isActive: true,
+  editMode: false,
+});
+
+const buildWebhookEndpointForm = (entry: ReturnUrlSummary): WebhookEndpointFormState => ({
+  id: entry.id,
+  affiliateId: entry.affiliateId,
+  url: entry.url,
+  isActive: entry.isActive,
+  editMode: true,
+});
+
 async function requestJson(
   url: string,
   method: "POST" | "PATCH",
@@ -137,6 +162,7 @@ export function AdminConfigPanel({
   affiliates,
   domains,
   returnUrls,
+  webhookEndpoints,
 }: AdminConfigPanelProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -144,10 +170,14 @@ export function AdminConfigPanel({
   const [selectedAffiliateCode, setSelectedAffiliateCode] = useState("");
   const [selectedDomainId, setSelectedDomainId] = useState("");
   const [selectedReturnUrlId, setSelectedReturnUrlId] = useState("");
+  const [selectedWebhookEndpointId, setSelectedWebhookEndpointId] = useState("");
   const [affiliateForm, setAffiliateForm] = useState<AffiliateFormState>(emptyAffiliateForm);
   const [domainForm, setDomainForm] = useState<DomainFormState>(emptyDomainForm);
   const [returnUrlForm, setReturnUrlForm] = useState<ReturnUrlFormState>(() =>
     buildEmptyReturnUrlForm(affiliates[0]?.id ?? ""),
+  );
+  const [webhookEndpointForm, setWebhookEndpointForm] = useState<WebhookEndpointFormState>(() =>
+    buildEmptyWebhookEndpointForm(affiliates[0]?.id ?? ""),
   );
 
   const defaultAffiliateId = affiliates[0]?.id ?? "";
@@ -501,6 +531,119 @@ export function AdminConfigPanel({
             disabled={isPending}
           >
             {returnUrlForm.editMode ? "保存修改" : "创建回跳地址"}
+          </button>
+        </form>
+
+        <form
+          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            startTransition(async () => {
+              const result = await requestJson(
+                "/api/admin/webhook-endpoints",
+                webhookEndpointForm.editMode ? "PATCH" : "POST",
+                {
+                  ...(webhookEndpointForm.editMode ? { id: webhookEndpointForm.id } : {}),
+                  affiliateId: webhookEndpointForm.affiliateId,
+                  url: webhookEndpointForm.url,
+                  isActive: webhookEndpointForm.isActive,
+                },
+              );
+
+              if (result.ok) {
+                handleSuccess(
+                  webhookEndpointForm.editMode
+                    ? "异步通知地址已更新，列表已刷新。"
+                    : "异步通知地址已创建，列表已刷新。",
+                  () => {
+                    setSelectedWebhookEndpointId("");
+                    setWebhookEndpointForm(buildEmptyWebhookEndpointForm(defaultAffiliateId));
+                  },
+                );
+                return;
+              }
+
+              setMessage(result.message ?? "保存失败");
+            });
+          }}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-lg">
+              {webhookEndpointForm.editMode ? "编辑异步通知地址" : "新增异步通知 Webhook"}
+            </div>
+            <select
+              value={selectedWebhookEndpointId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setSelectedWebhookEndpointId(nextId);
+                const selected = webhookEndpoints.find((entry) => entry.id === nextId);
+                setWebhookEndpointForm(
+                  selected
+                    ? buildWebhookEndpointForm(selected)
+                    : buildEmptyWebhookEndpointForm(defaultAffiliateId),
+                );
+              }}
+              className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
+            >
+              <option value="">新建</option>
+              {webhookEndpoints.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.affiliateName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            <select
+              value={webhookEndpointForm.affiliateId}
+              onChange={(event) =>
+                setWebhookEndpointForm((current) => ({
+                  ...current,
+                  affiliateId: event.target.value,
+                }))
+              }
+              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+            >
+              {affiliates.map((affiliate) => (
+                <option key={affiliate.id} value={affiliate.id}>
+                  {affiliate.name} ({affiliate.code})
+                </option>
+              ))}
+            </select>
+            <input
+              value={webhookEndpointForm.url}
+              onChange={(event) =>
+                setWebhookEndpointForm((current) => ({ ...current, url: event.target.value }))
+              }
+              placeholder="https://aaa.com/api/payment-webhook"
+              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+            />
+            <label className="flex items-center gap-3 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={webhookEndpointForm.isActive}
+                onChange={(event) =>
+                  setWebhookEndpointForm((current) => ({
+                    ...current,
+                    isActive: event.target.checked,
+                  }))
+                }
+              />
+              启用该异步通知地址
+            </label>
+            <div className="space-y-2 text-xs text-slate-400">
+              <p>这里配置的是独立服务端异步通知地址，系统会在订单进入终态后主动发起 POST JSON。</p>
+              <p>浏览器跳回 returnUrl 仍然保留，二者可以同时启用。</p>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
+            disabled={isPending}
+          >
+            {webhookEndpointForm.editMode ? "保存修改" : "创建异步通知地址"}
           </button>
         </form>
 

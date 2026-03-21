@@ -10,14 +10,17 @@ export async function loadAdminAffiliateSummaries() {
   try {
     const affiliates = await db.affiliate.findMany({
       include: {
-        domains: {
-          include: {
-            template: true,
-          },
+      domains: {
+        include: {
+          template: true,
         },
-        returnUrls: {
-          where: { isActive: true },
-        },
+      },
+      returnUrls: {
+        where: { isActive: true },
+      },
+      webhookEndpoints: {
+        where: { isActive: true },
+      },
       },
       orderBy: { createdAt: "desc" },
       take: 24,
@@ -30,6 +33,7 @@ export async function loadAdminAffiliateSummaries() {
       isActive: affiliate.isActive,
       domainCount: affiliate.domains.length,
       returnUrlCount: affiliate.returnUrls.length,
+      webhookEndpointCount: affiliate.webhookEndpoints.length,
     }));
   } catch {
     return [];
@@ -105,6 +109,28 @@ export async function loadAdminReturnUrlSummaries() {
     });
 
     return returnUrls.map((entry) => ({
+      id: entry.id,
+      affiliateName: entry.affiliate.name,
+      affiliateId: entry.affiliateId,
+      url: entry.url,
+      isActive: entry.isActive,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadAdminWebhookEndpointSummaries() {
+  try {
+    const endpoints = await db.affiliateWebhookEndpoint.findMany({
+      include: {
+        affiliate: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 80,
+    });
+
+    return endpoints.map((entry) => ({
       id: entry.id,
       affiliateName: entry.affiliate.name,
       affiliateId: entry.affiliateId,

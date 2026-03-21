@@ -5,6 +5,7 @@ import {
   loadAdminDomainSummaries,
   loadAdminReturnUrlSummaries,
   loadAdminUserSummaries,
+  loadAdminWebhookEndpointSummaries,
 } from "@/lib/admin/dashboard";
 import { requireSuperAdmin } from "@/lib/auth/access";
 
@@ -15,6 +16,7 @@ export default async function AdminDomainsPage() {
   const affiliates = await loadAdminAffiliateSummaries();
   const domains = await loadAdminDomainSummaries();
   const returnUrls = await loadAdminReturnUrlSummaries();
+  const webhookEndpoints = await loadAdminWebhookEndpointSummaries();
   const users = await loadAdminUserSummaries();
 
   return (
@@ -73,7 +75,12 @@ export default async function AdminDomainsPage() {
           </table>
         </div>
 
-        <AdminConfigPanel affiliates={affiliates} domains={domains} returnUrls={returnUrls} />
+        <AdminConfigPanel
+          affiliates={affiliates}
+          domains={domains}
+          returnUrls={returnUrls}
+          webhookEndpoints={webhookEndpoints}
+        />
         <UserManagementPanel affiliates={affiliates} users={users} />
       </div>
     </main>

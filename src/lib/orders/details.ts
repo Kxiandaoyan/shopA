@@ -15,7 +15,13 @@ async function loadOrderRecord(orderId: string, affiliateIds?: string[]) {
       ...(affiliateIds ? { affiliateId: { in: affiliateIds } } : {}),
     },
     include: {
-      affiliate: true,
+      affiliate: {
+        include: {
+          webhookEndpoints: {
+            where: { isActive: true },
+          },
+        },
+      },
       landingDomain: true,
       items: {
         orderBy: { createdAt: "asc" },
@@ -90,6 +96,7 @@ function mapOrderDetail(
       id: order.affiliate.id,
       code: order.affiliate.code,
       name: order.affiliate.name,
+      webhookEndpointCount: order.affiliate.webhookEndpoints.length,
     },
     landingDomain: {
       id: order.landingDomain.id,

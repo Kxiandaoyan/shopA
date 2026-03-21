@@ -21,6 +21,12 @@ export const returnUrlAdminSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
+export const webhookEndpointAdminSchema = z.object({
+  affiliateId: z.string().trim().min(1),
+  url: z.url(),
+  isActive: z.boolean().default(true),
+});
+
 export const stripeAdminSchema = z.object({
   landingDomainId: z.string().trim().min(1),
   accountLabel: z.string().trim().min(2),

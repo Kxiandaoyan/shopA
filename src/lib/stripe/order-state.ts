@@ -1,4 +1,6 @@
 import { OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { deliverAffiliateAsyncWebhooks } from "@/lib/affiliate/async-webhook-delivery";
+import { resolveAffiliateReturnStatus } from "@/lib/affiliate/status";
 import { db } from "@/lib/db";
 import { writeRedirectLog } from "@/lib/logging/events";
 
@@ -117,4 +119,8 @@ export async function applyPaymentState(input: ApplyPaymentStateInput) {
     requestUrl: input.requestUrl,
     metadata: input.metadata,
   });
+
+  if (resolveAffiliateReturnStatus(resolvedOrderStatus)) {
+    await deliverAffiliateAsyncWebhooks(input.orderId);
+  }
 }

@@ -1,11 +1,11 @@
-import { LogResult, OrderStatus } from "@prisma/client";
+import { LogResult } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { AffiliateReturnStatus } from "@/lib/affiliate/status";
+import { resolveAffiliateReturnStatus } from "@/lib/affiliate/status";
 import { writeRedirectLog } from "@/lib/logging/events";
 import { decryptValue } from "@/lib/security/encryption";
 import { buildReturnUrl } from "@/lib/stripe/urls";
 import { createAffiliateCallbackSignature } from "@/lib/affiliate/callback-signature";
-
-export type AffiliateReturnStatus = "paid" | "failed" | "expired" | "canceled";
 
 type DeliveryPlan = {
   orderId: string;
@@ -39,22 +39,6 @@ export type DeliverAffiliateReturnCallbackResult =
       affiliateCode?: string;
     };
 
-export function resolveAffiliateReturnStatus(
-  status: OrderStatus,
-): AffiliateReturnStatus | null {
-  switch (status) {
-    case OrderStatus.PAID:
-      return "paid";
-    case OrderStatus.FAILED:
-      return "failed";
-    case OrderStatus.EXPIRED:
-      return "expired";
-    case OrderStatus.CANCELED:
-      return "canceled";
-    default:
-      return null;
-  }
-}
 
 async function buildDeliveryPlan(orderId: string): Promise<DeliveryPlan | DeliverAffiliateReturnCallbackResult> {
   const order = await db.order.findUnique({

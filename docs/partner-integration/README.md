@@ -2,10 +2,11 @@
 
 本文档面向接入本平台的代理商技术团队，说明如何完成订单推送、买家跳转、支付结果接收与签名校验。
 
-当前系统的代理商结果通知机制分为两类：
+当前系统的代理商结果通知机制分为三类：
 
 1. 正式业务链路：买家浏览器自动跳回代理商 `returnUrl`
-2. 运维补救链路：管理员可在后台对终态订单手动补发一次 GET 回调
+2. 正式异步链路：系统向代理商 webhook 地址主动发送 `POST JSON`
+3. 运维补救链路：管理员可在后台对终态订单手动补发回跳或异步通知
 
 ## 1. 文档目标
 
@@ -13,6 +14,7 @@
 
 1. 代理商服务端调用我方下单接口，创建订单并获取落地页地址
 2. 买家支付完成后，代理商接收我方回跳通知并校验结果
+3. 代理商服务器接收我方异步 webhook 并做幂等更新
 
 本平台的支付链路为固定双跳模式：
 
@@ -43,12 +45,14 @@
 | `intakeSecret` | 下单接口签名密钥 |
 | `callbackSecret` | 回跳结果签名密钥，可选但强烈建议配置 |
 | `returnUrl` 白名单 | 允许回跳的地址，必须提前登记 |
+| `webhookUrl` | 异步通知地址，可配置一个或多个 |
 
 说明：
 
 - `returnUrl` 不是任意地址，必须由我方后台预先加入白名单
-- `callbackSecret` 未配置时，系统仍会回跳，但代理商无法校验签名真伪
+- `callbackSecret` 未配置时，系统仍会回跳和推送 webhook，但代理商无法校验签名真伪
 - 同一个代理商可对应多个落地域名，但域名由我方后台分配，不由代理商自行选择
+- 异步 webhook 地址由我方后台录入，建议使用独立服务端接口
 
 ## 3. 接入总流程
 
@@ -65,6 +69,7 @@
   -> Stripe 完成支付
   -> 回到我方结果页
   -> 写入订单状态
+  -> POST JSON 到代理商 webhook
   -> 自动跳回代理商 returnUrl
 ```
 
@@ -380,7 +385,7 @@ landingUrl
 }
 ```
 
-## 8. 支付结果回跳
+## 8. 浏览器回跳通知
 
 支付完成后，系统不会直接从 Stripe 回代理商网站，而是固定按以下顺序执行：
 
@@ -388,13 +393,13 @@ landingUrl
 2. 我方写入本地订单状态
 3. 我方再自动跳转到代理商 `returnUrl`
 
-这就是当前正式业务中的“回调通知”。
+这是正式业务链路中的浏览器回跳通知。
 
 说明：
 
-- 这是浏览器跳转式回调，不是独立的服务端 webhook
+- 这是浏览器跳转式回调
 - 若代理商已配置 `callbackSecret`，可对跳回参数做 HMAC 验签
-- 管理员后台还支持对终态订单手动补发一次 GET 回跳，作为补救工具
+- 管理员后台支持手动补发一次浏览器回跳，作为补救工具
 
 ### 8.1 回跳时始终包含的字段
 
@@ -532,9 +537,100 @@ def verify_callback(params, secret: str) -> bool:
     return hmac.compare_digest(expected, params["sig"])
 ```
 
-## 11. 代理商侧推荐处理方式
+## 11. 独立异步 webhook 通知
 
-### 11.1 下单侧
+除了浏览器回跳外，系统还会在订单进入终态后，向代理商 webhook 地址主动发送：
+
+```text
+POST {webhookUrl}
+Content-Type: application/json
+```
+
+当前触发的终态包括：
+
+- `paid`
+- `failed`
+- `canceled`
+- `expired`
+
+### 11.1 请求头
+
+始终包含：
+
+- `Content-Type: application/json`
+- `X-Shopa-Event: order.status_changed`
+- `X-Shopa-Timestamp: <ts>`
+
+配置了 `callbackSecret` 时还会包含：
+
+- `X-Shopa-Signature: <sig>`
+
+### 11.2 请求体示例
+
+```json
+{
+  "event": "order.status_changed",
+  "affiliateCode": "AFF_001",
+  "orderId": "ord_123",
+  "externalOrderId": "AAA-20260321-0001",
+  "status": "paid",
+  "amount": 29.99,
+  "currency": "USD",
+  "ts": "1774051200",
+  "landingDomain": "pay-a1.example.com",
+  "buyer": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "phone": "+15550000000",
+    "country": "US",
+    "state": "CA",
+    "city": "Los Angeles",
+    "address1": "123 Main St",
+    "address2": "",
+    "postalCode": "90001"
+  },
+  "items": [
+    {
+      "productId": "clean001",
+      "productName": "SmartSpray Microfiber Floor Mop",
+      "quantity": 1,
+      "unitPrice": 29.99
+    }
+  ],
+  "sig": "<optional>"
+}
+```
+
+说明：
+
+- `amount` 以订单 `totalAmount` 为准
+- `items` 为订单记录明细
+- `sig` 仅在配置 `callbackSecret` 时出现
+
+### 11.3 webhook 签名算法
+
+签名原文固定为：
+
+```text
+event.affiliateCode.orderId.externalOrderId.status.amount.currency.ts
+```
+
+签名算法：
+
+```text
+HMAC-SHA256(raw_string, callbackSecret)
+```
+
+### 11.4 webhook 返回要求
+
+- 成功时返回 `HTTP 200`
+- 失败时返回 `HTTP 4xx / 5xx`
+- 处理逻辑必须按 `orderId` 或 `externalOrderId` 幂等
+
+## 12. 代理商侧推荐处理方式
+
+### 12.1 下单侧
 
 1. 代理商系统先生成自己的 `externalOrderId`
 2. 组装完整买家地址、商品和金额
@@ -542,7 +638,7 @@ def verify_callback(params, secret: str) -> bool:
 4. 调用我方接口
 5. 成功后跳转到 `landingUrl`
 
-### 11.2 回跳侧
+### 12.2 浏览器回跳侧
 
 1. 先读取 `status`
 2. 如果存在 `sig`，必须先验签
@@ -551,18 +647,30 @@ def verify_callback(params, secret: str) -> bool:
 5. 对 `orderId` 或 `externalOrderId` 做幂等处理
 6. 成功后再更新代理商自己的订单状态
 
-### 11.3 如果你们需要“服务端通知”怎么理解
+### 12.3 异步 webhook 侧
 
-当前系统默认不主动向代理商提供独立 webhook。
+1. 提供独立 webhook 地址
+2. 校验 `X-Shopa-Signature` 或请求体中的 `sig`
+3. 校验 `ts`
+4. 按 `orderId` / `externalOrderId` 幂等更新
+5. 返回 `HTTP 200`
 
-目前可用的两种结果传递方式是：
+### 12.4 如果你们需要“服务端通知”怎么理解
+
+当前系统已经支持独立 webhook。
+
+目前可用的三种结果传递方式是：
 
 1. 正式业务回调：买家浏览器自动跳回 `returnUrl`
-2. 后台补发回调：管理员对终态订单手动补发一次 GET 回调
+2. 正式异步通知：系统主动 POST JSON 到分销商 webhook
+3. 后台补发：管理员可对终态订单手动重发回跳或 webhook
 
-因此代理商应优先把 `returnUrl` 对应页面设计成既能接收浏览器跳转，也能做签名校验与状态更新。
+因此代理商应同时准备：
 
-### 11.4 建议的状态映射
+1. 面向浏览器回跳的 `returnUrl`
+2. 面向服务端处理的 webhook 地址
+
+### 12.5 建议的状态映射
 
 | 我方状态 | 建议含义 |
 | --- | --- |
@@ -571,18 +679,19 @@ def verify_callback(params, secret: str) -> bool:
 | `canceled` | 用户取消支付 |
 | `expired` | 支付会话过期 |
 
-## 12. 幂等与重试建议
+## 13. 幂等与重试建议
 
 代理商系统建议按以下原则实现：
 
 - 同一个 `externalOrderId` 不要重复创建新业务单
 - 同一个 `nonce` 不要重复使用
 - 同一个回跳通知不要重复入账
+- 同一个 webhook 通知不要重复入账
 - 以 `orderId` 或 `externalOrderId` 做最终幂等键
 
 如果代理商重复调用下单接口，但参数本质相同，系统可能返回已存在订单的复用结果，这属于正常行为。
 
-## 13. 联调建议
+## 14. 联调建议
 
 正式联调前，建议按下面顺序测试：
 
@@ -593,10 +702,11 @@ def verify_callback(params, secret: str) -> bool:
 5. 测试支付失败场景
 6. 测试用户取消场景
 7. 验证回跳地址是否正确
-8. 验证 `sig` 和 `ts` 校验逻辑
-9. 验证代理商自身订单更新是否幂等
+8. 验证异步 webhook 是否能收到
+9. 验证 `sig` 和 `ts` 校验逻辑
+10. 验证代理商自身订单更新是否幂等
 
-## 14. 常见问题
+## 15. 常见问题
 
 ### 14.1 为什么不能直接跳 Stripe？
 
@@ -620,11 +730,17 @@ def verify_callback(params, secret: str) -> bool:
 
 ### 14.6 现在是否有独立的服务端回调通知？
 
-当前默认没有独立 webhook。
+有。
 
-正式链路中，结果通知方式是买家浏览器自动跳回 `returnUrl`。另外管理员后台支持手动补发一次 GET 回调，便于补救和重试。
+现在系统同时支持：
 
-## 15. 我方建议的最小开发清单
+1. 买家浏览器自动跳回 `returnUrl`
+2. 服务端异步 webhook `POST JSON`
+3. 管理员后台手动补发
+
+建议正式环境同时接浏览器回跳和异步 webhook，其中异步 webhook 作为主通知链路更稳。
+
+## 16. 我方建议的最小开发清单
 
 代理商至少完成以下功能：
 
@@ -633,10 +749,12 @@ def verify_callback(params, secret: str) -> bool:
 3. 买家跳转到 `landingUrl`
 4. 回跳地址页面接收参数
 5. 回跳签名校验
-6. 回跳幂等处理
-7. 成功、失败、取消三种状态处理
+6. webhook 接口接收 JSON
+7. webhook 签名校验
+8. 回跳与 webhook 幂等处理
+9. 成功、失败、取消三种状态处理
 
-## 16. 相关文档
+## 17. 相关文档
 
 - [分销英文技术文档](/D:/Code_Space/shopA/docs/distributor-integration.md)
 - [Stripe 配置文档](/D:/Code_Space/shopA/docs/stripe-setup.md)

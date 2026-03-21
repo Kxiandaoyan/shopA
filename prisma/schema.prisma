@@ -41,6 +41,11 @@ enum LogResult {
   INFO
 }
 
+enum WebhookDispatchMode {
+  AUTO
+  MANUAL
+}
+
 model User {
   id            String                 @id @default(cuid())
   email         String                 @unique
@@ -64,6 +69,7 @@ model Affiliate {
   domains                 LandingDomain[]
   orders                  Order[]
   returnUrls              AffiliateReturnUrl[]
+  webhookEndpoints        AffiliateWebhookEndpoint[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 }
@@ -159,6 +165,7 @@ model Order {
   paymentSessions PaymentSession[]
   intakeRequests  IntakeRequest[]
   redirectLogs    RedirectLog[]
+  webhookDispatches AffiliateWebhookDispatch[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -231,6 +238,43 @@ model AffiliateReturnUrl {
   createdAt   DateTime  @default(now())
 
   @@unique([affiliateId, url])
+}
+
+model AffiliateWebhookEndpoint {
+  id          String                   @id @default(cuid())
+  affiliateId String
+  url         String
+  isActive    Boolean                  @default(true)
+  affiliate   Affiliate                @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  dispatches  AffiliateWebhookDispatch[]
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  @@unique([affiliateId, url])
+}
+
+model AffiliateWebhookDispatch {
+  id             String                   @id @default(cuid())
+  orderId        String
+  endpointId     String
+  callbackStatus String
+  dispatchMode   WebhookDispatchMode
+  signed         Boolean                  @default(false)
+  success        Boolean                  @default(false)
+  responseStatus Int?
+  requestUrl     String
+  requestBody    Json
+  responseBody   String?
+  errorMessage   String?
+  order          Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  endpoint       AffiliateWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@unique([orderId, endpointId, callbackStatus, dispatchMode])
+  @@index([orderId, createdAt])
+  @@index([endpointId, createdAt])
+  @@index([callbackStatus, createdAt])
 }
 
 model AuditLog {

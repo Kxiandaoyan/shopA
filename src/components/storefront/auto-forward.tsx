@@ -7,7 +7,7 @@ type AutoForwardProps = {
   delayMs?: number;
 };
 
-export function AutoForward({ href, delayMs = 900 }: AutoForwardProps) {
+export function AutoForward({ href, delayMs = 80 }: AutoForwardProps) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       window.location.replace(href);

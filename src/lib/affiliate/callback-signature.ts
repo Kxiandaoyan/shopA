@@ -11,6 +11,17 @@ export type CallbackPayload = {
   ts: string;
 };
 
+export type AsyncWebhookSignaturePayload = {
+  event: string;
+  affiliateCode: string;
+  orderId: string;
+  externalOrderId: string;
+  status: string;
+  amount: string;
+  currency: string;
+  ts: string;
+};
+
 export const DEFAULT_CALLBACK_MAX_AGE_SECONDS = 300;
 
 export function createAffiliateCallbackSignature(payload: CallbackPayload, secret: string) {
@@ -121,4 +132,38 @@ export function verifyAffiliateCallbackPayload(
   }
 
   return verifyAffiliateCallbackSignature(payload, secret);
+}
+
+export function createAffiliateAsyncWebhookSignature(
+  payload: AsyncWebhookSignaturePayload,
+  secret: string,
+) {
+  return crypto
+    .createHmac("sha256", secret)
+    .update(
+      [
+        payload.event,
+        payload.affiliateCode,
+        payload.orderId,
+        payload.externalOrderId,
+        payload.status,
+        payload.amount,
+        payload.currency,
+        payload.ts,
+      ].join("."),
+    )
+    .digest("hex");
+}
+
+export function verifyAffiliateAsyncWebhookSignature(
+  payload: AsyncWebhookSignaturePayload & { sig: string },
+  secret: string,
+) {
+  const expected = createAffiliateAsyncWebhookSignature(payload, secret);
+
+  if (expected.length !== payload.sig.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(payload.sig));
 }

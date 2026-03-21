@@ -6,6 +6,7 @@
 - 发送下单请求
 - 接收支付结果回跳
 - 校验回跳签名
+- 接收异步 webhook
 
 ## 1. 生成下单签名
 
@@ -202,9 +203,81 @@ switch ($status) {
 echo "ok";
 ```
 
-## 7. 重要说明
+## 7. 接收异步 webhook
 
-- 当前正式回调链路是“浏览器自动跳回 `returnUrl`”
-- 当前系统默认不提供独立的代理商服务端 webhook 推送
-- 管理员后台支持在终态订单上手动补发一次 GET 回跳
+系统还会向代理商 webhook 地址主动发送 `POST JSON`。
+
+### 7.1 webhook 验签函数
+
+```php
+<?php
+function verifyAsyncWebhook(array $payload, string $secret): bool {
+    if (
+        empty($payload["event"]) ||
+        empty($payload["affiliateCode"]) ||
+        empty($payload["orderId"]) ||
+        empty($payload["externalOrderId"]) ||
+        empty($payload["status"]) ||
+        !isset($payload["amount"]) ||
+        empty($payload["currency"]) ||
+        empty($payload["ts"]) ||
+        empty($payload["sig"])
+    ) {
+        return false;
+    }
+
+    $amount = number_format((float)$payload["amount"], 2, ".", "");
+    $raw = implode(".", [
+        $payload["event"],
+        $payload["affiliateCode"],
+        $payload["orderId"],
+        $payload["externalOrderId"],
+        $payload["status"],
+        $amount,
+        $payload["currency"],
+        $payload["ts"]
+    ]);
+
+    $expected = hash_hmac("sha256", $raw, $secret);
+    return hash_equals($expected, $payload["sig"]);
+}
+```
+
+### 7.2 webhook 接收示例
+
+```php
+<?php
+$rawBody = file_get_contents("php://input");
+$payload = json_decode($rawBody, true);
+$callbackSecret = "your-callback-secret";
+
+if (!is_array($payload)) {
+    http_response_code(400);
+    exit("invalid json");
+}
+
+if (!empty($payload["sig"])) {
+    if (!verifyAsyncWebhook($payload, $callbackSecret)) {
+        http_response_code(400);
+        exit("invalid webhook signature");
+    }
+
+    if (!isFreshTimestamp((string)$payload["ts"])) {
+        http_response_code(400);
+        exit("expired webhook timestamp");
+    }
+}
+
+// 按 orderId 或 externalOrderId 做幂等更新
+
+http_response_code(200);
+echo "ok";
+```
+
+## 8. 重要说明
+
+- 浏览器回跳和异步 webhook 会同时存在
+- 正式环境建议以异步 webhook 作为主通知链路
+- 浏览器回跳更适合前端页面跳转和买家回流
+- 管理员后台支持在终态订单上手动补发浏览器回跳或异步 webhook
 - 正式环境建议务必启用 `callbackSecret`

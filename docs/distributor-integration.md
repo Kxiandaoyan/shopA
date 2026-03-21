@@ -2,10 +2,11 @@
 
 ## Overview
 
-Distributors integrate in two places:
+Distributors integrate in three places:
 
 1. Server-to-server order intake
-2. Payment result callback handling
+2. Browser return callback handling
+3. Async webhook handling
 
 The intake request should always be signed with the affiliate's own intake secret. The callback redirect should also be verified when `sig` is present.
 
@@ -139,7 +140,50 @@ Redirect the buyer to `landingUrl`.
 
 After Stripe finishes, the buyer returns to the assigned landing domain first. Only after the local result is recorded does the app redirect to your `returnUrl`.
 
-This redirect is the primary production callback mechanism. The system does not currently provide a separate automatic server-to-server webhook for affiliates by default. The admin backend can manually resend a GET callback for a terminal order when operational recovery is needed.
+This browser redirect remains active in production. The system also sends a separate async webhook `POST` request to each configured affiliate webhook endpoint for terminal order states. The admin backend can manually resend both the browser callback and the async webhook when operational recovery is needed.
+
+## 3. Async Webhook
+
+### Method
+
+```text
+POST {affiliate_webhook_url}
+```
+
+### Event
+
+```text
+order.status_changed
+```
+
+### Body Fields
+
+- `event`
+- `affiliateCode`
+- `orderId`
+- `externalOrderId`
+- `status`
+- `amount`
+- `currency`
+- `ts`
+- `landingDomain`
+- `buyer`
+- `items`
+- `sig` when callback secret is configured
+
+### Signature Rule
+
+Sign this exact string:
+
+```text
+event.affiliateCode.orderId.externalOrderId.status.amount.currency.ts
+```
+
+Then compute:
+
+```text
+HMAC-SHA256(raw_string, callback_secret)
+```
 
 ### Always Included
 

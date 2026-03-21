@@ -1,6 +1,6 @@
 import { OrderStatus } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { resolveAffiliateReturnStatus } from "@/lib/affiliate/callback-delivery";
+import { resolveAffiliateReturnStatus } from "@/lib/affiliate/status";
 
 describe("resolveAffiliateReturnStatus", () => {
   it("maps terminal order states to affiliate callback states", () => {
