@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  AFFILIATE_ADMIN
+}
+
+enum DomainTemplateCode {
+  A
+  B
+  C
+}
+
+enum OrderStatus {
+  DRAFT
+  LANDING_VISITED
+  CHECKOUT_CREATED
+  PAID
+  FAILED
+  EXPIRED
+  CANCELED
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  CANCELED
+}
+
+enum LogResult {
+  SUCCESS
+  FAILURE
+  INFO
+}
+
+model User {
+  id            String                 @id @default(cuid())
+  email         String                 @unique
+  passwordHash  String?
+  displayName   String
+  role          UserRole
+  memberships   AffiliateMembership[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model Affiliate {
+  id                      String                 @id @default(cuid())
+  code                    String                 @unique
+  name                    String
+  intakeSecretEncrypted   String?
+  callbackSecretEncrypted String?
+  isActive                Boolean                @default(true)
+  memberships             AffiliateMembership[]
+  domains                 LandingDomain[]
+  orders                  Order[]
+  returnUrls              AffiliateReturnUrl[]
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+}
+
+model AffiliateMembership {
+  id          String    @id @default(cuid())
+  userId      String
+  affiliateId String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, affiliateId])
+}
+
+model LandingDomain {
+  id           String           @id @default(cuid())
+  hostname     String           @unique
+  label        String
+  isActive     Boolean          @default(true)
+  affiliateId  String?
+  affiliate    Affiliate?       @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
+  stripeAccount StripeAccount?
+  template     DomainTemplate?
+  orders       Order[]
+  redirectLogs RedirectLog[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model DomainTemplate {
+  id              String             @id @default(cuid())
+  landingDomainId String             @unique
+  templateCode    DomainTemplateCode
+  landingDomain   LandingDomain      @relation(fields: [landingDomainId], references: [id], onDelete: Cascade)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model StripeAccount {
+  id                 String         @id @default(cuid())
+  landingDomainId    String         @unique
+  accountLabel       String
+  publishableKey     String?
+  secretKeyEncrypted String
+  webhookSecret      String
+  isActive           Boolean        @default(true)
+  landingDomain      LandingDomain  @relation(fields: [landingDomainId], references: [id], onDelete: Cascade)
+  paymentSessions    PaymentSession[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([isActive, createdAt])
+}
+
+model Product {
+  id          String      @id
+  name        String
+  category    String
+  image       String
+  description String
+  price       Decimal     @db.Decimal(10, 2)
+  currency    String
+  features    Json
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  affiliateId     String
+  landingDomainId String
+  externalOrderId String
+  buyerEmail      String
+  buyerFirstName  String
+  buyerLastName   String
+  buyerPhone      String
+  country         String
+  state           String
+  city            String
+  address1        String
+  address2        String?
+  postalCode      String
+  totalAmount     Decimal         @db.Decimal(10, 2)
+  currency        String
+  returnUrl       String?
+  token           String          @unique
+  status          OrderStatus     @default(DRAFT)
+  affiliate       Affiliate       @relation(fields: [affiliateId], references: [id], onDelete: Restrict)
+  landingDomain   LandingDomain   @relation(fields: [landingDomainId], references: [id], onDelete: Restrict)
+  items           OrderItem[]
+  paymentSessions PaymentSession[]
+  intakeRequests  IntakeRequest[]
+  redirectLogs    RedirectLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([affiliateId, externalOrderId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([affiliateId, createdAt])
+  @@index([landingDomainId, createdAt])
+  @@index([buyerEmail])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String?
+  productName String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  metadata    Json?
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+model PaymentSession {
+  id                    String         @id @default(cuid())
+  orderId               String
+  stripeAccountId       String
+  stripeSessionId       String?        @unique
+  stripePaymentIntentId String?        @unique
+  status                PaymentStatus  @default(CREATED)
+  amount                Decimal        @db.Decimal(10, 2)
+  currency              String
+  metadata              Json?
+  order                 Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stripeAccount         StripeAccount  @relation(fields: [stripeAccountId], references: [id], onDelete: Restrict)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([orderId, createdAt])
+  @@index([stripeAccountId, createdAt])
+  @@index([status, createdAt])
+}
+
+model IntakeRequest {
+  id               String    @id @default(cuid())
+  orderId          String?
+  affiliateCode    String
+  externalOrderId  String
+  nonce            String
+  requestTimestamp Int
+  requestBody      Json
+  signatureValid   Boolean
+  idempotencyKey   String
+  failureReason    String?
+  order            Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+
+  @@unique([affiliateCode, nonce])
+  @@index([idempotencyKey])
+  @@index([createdAt])
+}
+
+model AffiliateReturnUrl {
+  id          String    @id @default(cuid())
+  affiliateId String
+  url         String
+  isActive    Boolean   @default(true)
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([affiliateId, url])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  actorId    String?
+  eventType  String
+  result     LogResult @default(INFO)
+  targetType String
+  targetId   String?
+  metadata   Json?
+  actor      User?     @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([eventType, createdAt])
+}
+
+model RedirectLog {
+  id              String         @id @default(cuid())
+  orderId         String?
+  landingDomainId String?
+  eventType       String
+  result          LogResult      @default(INFO)
+  status          String?
+  requestUrl      String?
+  message         String?
+  metadata        Json?
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  landingDomain   LandingDomain? @relation(fields: [landingDomainId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([orderId, createdAt])
+  @@index([landingDomainId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([result, createdAt])
+}

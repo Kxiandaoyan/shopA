@@ -1,0 +1,13 @@
+.next
+node_modules
+.env
+.env.local
+.env.*.local
+coverage
+dist
+prisma/dev.db
+*.log
+dev.db
+.local-postgres
+.preview.log
+.preview.err.log
