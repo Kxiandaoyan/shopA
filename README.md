@@ -118,6 +118,7 @@ If the affiliate has a callback secret configured, the return redirect includes 
 - Plan: `docs/plans/2026-03-16-b2c-saas-mall.md`
 - Hardening plan: `docs/plans/2026-03-16-hardening-upgrade.md`
 - Deployment: `docs/deployment.md`
+- BT Panel deployment: `docs/deployment-bt-panel.md`
 - Stripe setup: `docs/stripe-setup.md`
 - Distributor integration: `docs/distributor-integration.md`
 
