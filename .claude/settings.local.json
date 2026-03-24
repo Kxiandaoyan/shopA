@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(tail-30)",
+      "Bash(tail-40)"
     ]
   }
 }

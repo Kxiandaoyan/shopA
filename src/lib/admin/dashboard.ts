@@ -36,8 +36,35 @@ export async function loadAdminAffiliateSummaries() {
       name: affiliate.name,
       isActive: affiliate.isActive,
       domainCount: affiliate.domains.length,
+      domainHostnames: affiliate.domains.map((d) => d.hostname),
       returnUrlCount: affiliate.returnUrls.length,
       webhookEndpointCount: affiliate.webhookEndpoints.length,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadAvailableDomainsForAffiliate() {
+  try {
+    const domains = await db.landingDomain.findMany({
+      where: {
+        isActive: true,
+        affiliateId: null,
+      },
+      select: {
+        id: true,
+        hostname: true,
+        label: true,
+      },
+      orderBy: { createdAt: "asc" },
+      take: 50,
+    });
+
+    return domains.map((domain) => ({
+      id: domain.id,
+      hostname: domain.hostname,
+      label: domain.label,
     }));
   } catch {
     return [];

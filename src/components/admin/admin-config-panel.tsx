@@ -9,8 +9,6 @@ type AffiliateSummary = {
   name: string;
   isActive: boolean;
   domainCount: number;
-  returnUrlCount: number;
-  webhookEndpointCount: number;
 };
 
 type DomainSummary = {
@@ -19,21 +17,10 @@ type DomainSummary = {
   label: string;
   isActive: boolean;
   affiliateId: string | null;
-  affiliateName: string;
-  templateCode: "A" | "B" | "C";
-  affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
-  affiliateCheckoutFixedName: string | null;
+  affiliateName: string | null;
+  templateCode: string;
   stripeAccountId: string | null;
   stripeLabel: string | null;
-  stripeActive: boolean;
-};
-
-type ReturnUrlSummary = {
-  id: string;
-  affiliateName: string;
-  affiliateId: string;
-  url: string;
-  isActive: boolean;
 };
 
 type StripeAccountSummary = {
@@ -45,16 +32,11 @@ type StripeAccountSummary = {
 type AdminConfigPanelProps = {
   affiliates: AffiliateSummary[];
   domains: DomainSummary[];
-  returnUrls: ReturnUrlSummary[];
-  webhookEndpoints: ReturnUrlSummary[];
   stripeAccounts?: StripeAccountSummary[];
 };
 
 type AffiliateFormState = {
-  code: string;
   name: string;
-  intakeSecret: string;
-  callbackSecret: string;
   isActive: boolean;
   editMode: boolean;
 };
@@ -66,42 +48,18 @@ type DomainFormState = {
   affiliateId: string;
   stripeAccountId: string;
   templateCode: string;
-  affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
-  affiliateCheckoutFixedName: string;
-  isActive: boolean;
-  editMode: boolean;
-};
-
-type ReturnUrlFormState = {
-  id?: string;
-  affiliateId: string;
-  url: string;
-  isActive: boolean;
-  editMode: boolean;
-};
-
-type WebhookEndpointFormState = {
-  id?: string;
-  affiliateId: string;
-  url: string;
   isActive: boolean;
   editMode: boolean;
 };
 
 const emptyAffiliateForm = (): AffiliateFormState => ({
-  code: "",
   name: "",
-  intakeSecret: "",
-  callbackSecret: "",
   isActive: true,
   editMode: false,
 });
 
 const buildAffiliateForm = (affiliate: AffiliateSummary): AffiliateFormState => ({
-  code: affiliate.code,
   name: affiliate.name,
-  intakeSecret: "",
-  callbackSecret: "",
   isActive: affiliate.isActive,
   editMode: true,
 });
@@ -112,8 +70,6 @@ const emptyDomainForm = (): DomainFormState => ({
   affiliateId: "",
   stripeAccountId: "",
   templateCode: "",
-  affiliateCheckoutNameMode: "CATALOG_RANDOM",
-  affiliateCheckoutFixedName: "",
   isActive: true,
   editMode: false,
 });
@@ -125,679 +81,433 @@ const buildDomainForm = (domain: DomainSummary): DomainFormState => ({
   affiliateId: domain.affiliateId ?? "",
   stripeAccountId: domain.stripeAccountId ?? "",
   templateCode: domain.templateCode,
-  affiliateCheckoutNameMode: domain.affiliateCheckoutNameMode,
-  affiliateCheckoutFixedName: domain.affiliateCheckoutFixedName ?? "",
   isActive: domain.isActive,
-  editMode: true,
-});
-
-const buildEmptyReturnUrlForm = (defaultAffiliateId: string): ReturnUrlFormState => ({
-  affiliateId: defaultAffiliateId,
-  url: "",
-  isActive: true,
-  editMode: false,
-});
-
-const buildReturnUrlForm = (entry: ReturnUrlSummary): ReturnUrlFormState => ({
-  id: entry.id,
-  affiliateId: entry.affiliateId,
-  url: entry.url,
-  isActive: entry.isActive,
-  editMode: true,
-});
-
-const buildEmptyWebhookEndpointForm = (defaultAffiliateId: string): WebhookEndpointFormState => ({
-  affiliateId: defaultAffiliateId,
-  url: "",
-  isActive: true,
-  editMode: false,
-});
-
-const buildWebhookEndpointForm = (entry: ReturnUrlSummary): WebhookEndpointFormState => ({
-  id: entry.id,
-  affiliateId: entry.affiliateId,
-  url: entry.url,
-  isActive: entry.isActive,
   editMode: true,
 });
 
 async function requestJson(
   url: string,
-  method: "POST" | "PATCH",
-  payload: Record<string, unknown>,
+  method: "POST" | "PATCH" | "DELETE",
+  payload?: Record<string, unknown>,
 ) {
   const response = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: payload ? JSON.stringify(payload) : undefined,
   });
 
-  return response.json();
+    return response.json();
 }
 
 export function AdminConfigPanel({
   affiliates,
   domains,
-  returnUrls,
-  webhookEndpoints,
   stripeAccounts = [],
 }: AdminConfigPanelProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const [selectedAffiliateCode, setSelectedAffiliateCode] = useState("");
-  const [selectedDomainId, setSelectedDomainId] = useState("");
-  const [selectedReturnUrlId, setSelectedReturnUrlId] = useState("");
-  const [selectedWebhookEndpointId, setSelectedWebhookEndpointId] = useState("");
-  const [affiliateForm, setAffiliateForm] = useState<AffiliateFormState>(emptyAffiliateForm);
-  const [domainForm, setDomainForm] = useState<DomainFormState>(emptyDomainForm);
-  const [returnUrlForm, setReturnUrlForm] = useState<ReturnUrlFormState>(() =>
-    buildEmptyReturnUrlForm(affiliates[0]?.id ?? ""),
-  );
-  const [webhookEndpointForm, setWebhookEndpointForm] = useState<WebhookEndpointFormState>(() =>
-    buildEmptyWebhookEndpointForm(affiliates[0]?.id ?? ""),
-  );
+    const [isPending, startTransition] = useTransition();
+    const [activeTab, setActiveTab] = useState<"affiliates" | "domains">("affiliates");
+    const [selectedAffiliateId, setSelectedAffiliateId] = useState("");
+    const [selectedDomainId, setSelectedDomainId] = useState("");
+    const [affiliateForm, setAffiliateForm] = useState<AffiliateFormState>(emptyAffiliateForm);
+    const [domainForm, setDomainForm] = useState<DomainFormState>(emptyDomainForm);
 
-  const defaultAffiliateId = affiliates[0]?.id ?? "";
-  const handleSuccess = (nextMessage: string, reset: () => void) => {
-    reset();
-    setMessage(nextMessage);
-    router.refresh();
-  };
+    const handleSuccess = (nextMessage: string, reset: () => void) => {
+        reset();
+        setMessage(nextMessage);
+        router.refresh();
+    };
 
-  return (
-    <section className="mt-10 space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form
-          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            startTransition(async () => {
-              const result = await requestJson(
-                "/api/admin/affiliates",
-                affiliateForm.editMode ? "PATCH" : "POST",
-                {
-                  code: affiliateForm.code,
-                  name: affiliateForm.name,
-                  intakeSecret: affiliateForm.intakeSecret,
-                  callbackSecret: affiliateForm.callbackSecret,
-                  ...(affiliateForm.editMode ? { isActive: affiliateForm.isActive } : {}),
-                },
-              );
+    const handleDeleteAffiliate = async (id: string) => {
+        if (!confirm("确定删除该分销商？此操作不可恢复。\关联域名将取消分配。"))
+            return;
 
-              if (result.ok) {
-                handleSuccess(
-                  affiliateForm.editMode ? "分销商已更新，列表已刷新。" : "分销商已创建，列表已刷新。",
-                  () => {
-                    setSelectedAffiliateCode("");
+        startTransition(async () => {
+            const result = await requestJson(`/api/admin/affiliates?id=${id}`, "DELETE");
+
+            if (result.ok) {
+                handleSuccess("分销商已删除", () => {
+                    setSelectedAffiliateId("");
                     setAffiliateForm(emptyAffiliateForm());
-                  },
-                );
-                return;
-              }
+                });
+            } else {
+                setMessage(result.message ?? "删除失败");
+            }
+        });
+    };
 
-              setMessage(result.message ?? "保存失败");
-            });
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg">{affiliateForm.editMode ? "编辑分销商" : "新增分销商"}</div>
-            <select
-              value={selectedAffiliateCode}
-              onChange={(event) => {
-                const nextCode = event.target.value;
-                setSelectedAffiliateCode(nextCode);
-                const selected = affiliates.find((affiliate) => affiliate.code === nextCode);
-                setAffiliateForm(selected ? buildAffiliateForm(selected) : emptyAffiliateForm());
-              }}
-              className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">新建</option>
-              {affiliates.map((affiliate) => (
-                <option key={affiliate.id} value={affiliate.code}>
-                  {affiliate.name}
-                </option>
-              ))}
-            </select>
-          </div>
+    const handleDeleteDomain = async (id: string) => {
+        if (!confirm("确定删除该域名？此操作不可恢复。"))
+            return;
 
-          <div className="mt-4 grid gap-3">
-            <input
-              value={affiliateForm.code}
-              onChange={(event) =>
-                setAffiliateForm((current) => ({ ...current, code: event.target.value }))
-              }
-              placeholder="分销商编码"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              value={affiliateForm.name}
-              onChange={(event) =>
-                setAffiliateForm((current) => ({ ...current, name: event.target.value }))
-              }
-              placeholder="分销商名称"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              value={affiliateForm.intakeSecret}
-              onChange={(event) =>
-                setAffiliateForm((current) => ({
-                  ...current,
-                  intakeSecret: event.target.value,
-                }))
-              }
-              placeholder={affiliateForm.editMode ? "输入新接单密钥以轮换" : "接单签名密钥"}
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              value={affiliateForm.callbackSecret}
-              onChange={(event) =>
-                setAffiliateForm((current) => ({
-                  ...current,
-                  callbackSecret: event.target.value,
-                }))
-              }
-              placeholder={affiliateForm.editMode ? "输入新回跳密钥以轮换" : "回跳签名密钥"}
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            {affiliateForm.editMode ? (
-              <label className="flex items-center gap-3 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={affiliateForm.isActive}
-                  onChange={(event) =>
-                    setAffiliateForm((current) => ({
-                      ...current,
-                      isActive: event.target.checked,
-                    }))
-                  }
-                />
-                启用该分销商
-              </label>
-            ) : null}
-            <div className="space-y-2 text-xs text-slate-400">
-              <p>接单签名密钥用于校验分销商发来的 intake API 请求，必须每个分销商独立配置。</p>
-              <p>回跳签名密钥用于保护支付完成后的回跳参数，降低被伪造成功状态的风险。</p>
-            </div>
-          </div>
+        startTransition(async () => {
+            const result = await requestJson(`/api/admin/domains?id=${id}`, "DELETE");
 
-          <button
-            type="submit"
-            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-            disabled={isPending}
-          >
-            {affiliateForm.editMode ? "保存修改" : "创建分销商"}
-          </button>
-        </form>
-
-        <form
-          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            startTransition(async () => {
-              const result = await requestJson(
-                "/api/admin/domains",
-                domainForm.editMode ? "PATCH" : "POST",
-                {
-                  ...(domainForm.editMode ? { id: domainForm.id } : {}),
-                  hostname: domainForm.hostname,
-                  label: domainForm.label,
-                  affiliateId: domainForm.affiliateId || null,
-                  stripeAccountId: domainForm.stripeAccountId || null,
-                  templateCode: domainForm.templateCode || null,
-                  affiliateCheckoutNameMode: domainForm.affiliateCheckoutNameMode,
-                  affiliateCheckoutFixedName:
-                    domainForm.affiliateCheckoutNameMode === "FIXED"
-                      ? domainForm.affiliateCheckoutFixedName
-                      : null,
-                  isActive: domainForm.isActive,
-                },
-              );
-
-              if (result.ok) {
-                handleSuccess(
-                  domainForm.editMode ? "域名已更新，列表已刷新。" : "域名已创建，列表已刷新。",
-                  () => {
+            if (result.ok) {
+                handleSuccess("域名已删除", () => {
                     setSelectedDomainId("");
                     setDomainForm(emptyDomainForm());
-                  },
-                );
-                return;
-              }
-
-              setMessage(result.message ?? "保存失败");
-            });
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg">{domainForm.editMode ? "编辑域名" : "新增域名 / 模板"}</div>
-            <select
-              value={selectedDomainId}
-              onChange={(event) => {
-                const nextId = event.target.value;
-                setSelectedDomainId(nextId);
-                const selected = domains.find((domain) => domain.id === nextId);
-                setDomainForm(selected ? buildDomainForm(selected) : emptyDomainForm());
-              }}
-              className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">新建</option>
-              {domains.map((domain) => (
-                <option key={domain.id} value={domain.id}>
-                  {domain.hostname}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <input
-              value={domainForm.hostname}
-              onChange={(event) =>
-                setDomainForm((current) => ({ ...current, hostname: event.target.value }))
-              }
-              placeholder="pay-a.example.com"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              value={domainForm.label}
-              onChange={(event) =>
-                setDomainForm((current) => ({ ...current, label: event.target.value }))
-              }
-              placeholder="域名标签"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <select
-              value={domainForm.affiliateId}
-              onChange={(event) =>
-                setDomainForm((current) => ({ ...current, affiliateId: event.target.value }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              <option value="">暂不分配分销商</option>
-              {affiliates.map((affiliate) => (
-                <option key={affiliate.id} value={affiliate.id}>
-                  {affiliate.name} ({affiliate.code})
-                </option>
-              ))}
-            </select>
-            <select
-              value={domainForm.stripeAccountId}
-              onChange={(event) =>
-                setDomainForm((current) => ({ ...current, stripeAccountId: event.target.value }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              <option value="">暂不分配 Stripe 账号</option>
-              {stripeAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.accountLabel} {account.isActive ? "" : "(已停用)"}
-                </option>
-              ))}
-            </select>
-            <select
-              value={domainForm.templateCode}
-              onChange={(event) =>
-                setDomainForm((current) => ({ ...current, templateCode: event.target.value }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              <option value="">默认 A 模板</option>
-              <option value="A">模板 A</option>
-              <option value="B">模板 B</option>
-              <option value="C">模板 C</option>
-            </select>
-            <select
-              value={domainForm.affiliateCheckoutNameMode}
-              onChange={(event) =>
-                setDomainForm((current) => ({
-                  ...current,
-                  affiliateCheckoutNameMode: event.target.value as DomainFormState["affiliateCheckoutNameMode"],
-                  affiliateCheckoutFixedName:
-                    event.target.value === "FIXED" ? current.affiliateCheckoutFixedName : "",
-                }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              <option value="CATALOG_RANDOM">Stripe 名称: 随机本站商品名</option>
-              <option value="FIXED">Stripe 名称: 固定名称</option>
-              <option value="SOURCE_PRODUCT">Stripe 名称: 来源商品真实名称</option>
-            </select>
-            {domainForm.affiliateCheckoutNameMode === "FIXED" ? (
-              <input
-                value={domainForm.affiliateCheckoutFixedName}
-                onChange={(event) =>
-                  setDomainForm((current) => ({
-                    ...current,
-                    affiliateCheckoutFixedName: event.target.value,
-                  }))
-                }
-                placeholder="固定展示名称，例如 Store order"
-                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-              />
-            ) : null}
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={domainForm.isActive}
-                onChange={(event) =>
-                  setDomainForm((current) => ({ ...current, isActive: event.target.checked }))
-                }
-              />
-              启用该域名
-            </label>
-            <div className="space-y-2 text-xs text-slate-400">
-              <p>这里控制分销订单进入 Stripe Hosted Checkout 时显示的商品名称，不影响最终支付金额。</p>
-              <p>固定名称适合统一展示；随机本站商品名适合隐藏真实来源；真实名称则直接使用 intake 传入商品名。</p>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-            disabled={isPending}
-          >
-            {domainForm.editMode ? "保存修改" : "创建域名"}
-          </button>
-        </form>
-
-        <form
-          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            startTransition(async () => {
-              const result = await requestJson(
-                "/api/admin/return-urls",
-                returnUrlForm.editMode ? "PATCH" : "POST",
-                {
-                  ...(returnUrlForm.editMode ? { id: returnUrlForm.id } : {}),
-                  affiliateId: returnUrlForm.affiliateId,
-                  url: returnUrlForm.url,
-                  isActive: returnUrlForm.isActive,
-                },
-              );
-
-              if (result.ok) {
-                handleSuccess(
-                  returnUrlForm.editMode
-                    ? "回跳地址已更新，列表已刷新。"
-                    : "回跳地址已创建，列表已刷新。",
-                  () => {
-                    setSelectedReturnUrlId("");
-                    setReturnUrlForm(buildEmptyReturnUrlForm(defaultAffiliateId));
-                  },
-                );
-                return;
-              }
-
-              setMessage(result.message ?? "保存失败");
-            });
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg">
-              {returnUrlForm.editMode ? "编辑回跳地址" : "新增回跳白名单"}
-            </div>
-            <select
-              value={selectedReturnUrlId}
-              onChange={(event) => {
-                const nextId = event.target.value;
-                setSelectedReturnUrlId(nextId);
-                const selected = returnUrls.find((entry) => entry.id === nextId);
-                setReturnUrlForm(
-                  selected ? buildReturnUrlForm(selected) : buildEmptyReturnUrlForm(defaultAffiliateId),
-                );
-              }}
-              className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">新建</option>
-              {returnUrls.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.affiliateName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <select
-              value={returnUrlForm.affiliateId}
-              onChange={(event) =>
-                setReturnUrlForm((current) => ({ ...current, affiliateId: event.target.value }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              {affiliates.map((affiliate) => (
-                <option key={affiliate.id} value={affiliate.id}>
-                  {affiliate.name} ({affiliate.code})
-                </option>
-              ))}
-            </select>
-            <input
-              value={returnUrlForm.url}
-              onChange={(event) =>
-                setReturnUrlForm((current) => ({ ...current, url: event.target.value }))
-              }
-              placeholder="https://aaa.com/complete"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={returnUrlForm.isActive}
-                onChange={(event) =>
-                  setReturnUrlForm((current) => ({
-                    ...current,
-                    isActive: event.target.checked,
-                  }))
-                }
-              />
-              启用该回跳地址
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-            disabled={isPending}
-          >
-            {returnUrlForm.editMode ? "保存修改" : "创建回跳地址"}
-          </button>
-        </form>
-
-        <form
-          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            startTransition(async () => {
-              const result = await requestJson(
-                "/api/admin/webhook-endpoints",
-                webhookEndpointForm.editMode ? "PATCH" : "POST",
-                {
-                  ...(webhookEndpointForm.editMode ? { id: webhookEndpointForm.id } : {}),
-                  affiliateId: webhookEndpointForm.affiliateId,
-                  url: webhookEndpointForm.url,
-                  isActive: webhookEndpointForm.isActive,
-                },
-              );
-
-              if (result.ok) {
-                handleSuccess(
-                  webhookEndpointForm.editMode
-                    ? "异步通知地址已更新，列表已刷新。"
-                    : "异步通知地址已创建，列表已刷新。",
-                  () => {
-                    setSelectedWebhookEndpointId("");
-                    setWebhookEndpointForm(buildEmptyWebhookEndpointForm(defaultAffiliateId));
-                  },
-                );
-                return;
-              }
-
-              setMessage(result.message ?? "保存失败");
-            });
-          }}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-lg">
-              {webhookEndpointForm.editMode ? "编辑异步通知地址" : "新增异步通知 Webhook"}
-            </div>
-            <select
-              value={selectedWebhookEndpointId}
-              onChange={(event) => {
-                const nextId = event.target.value;
-                setSelectedWebhookEndpointId(nextId);
-                const selected = webhookEndpoints.find((entry) => entry.id === nextId);
-                setWebhookEndpointForm(
-                  selected
-                    ? buildWebhookEndpointForm(selected)
-                    : buildEmptyWebhookEndpointForm(defaultAffiliateId),
-                );
-              }}
-              className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
-            >
-              <option value="">新建</option>
-              {webhookEndpoints.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {entry.affiliateName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <select
-              value={webhookEndpointForm.affiliateId}
-              onChange={(event) =>
-                setWebhookEndpointForm((current) => ({
-                  ...current,
-                  affiliateId: event.target.value,
-                }))
-              }
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              {affiliates.map((affiliate) => (
-                <option key={affiliate.id} value={affiliate.id}>
-                  {affiliate.name} ({affiliate.code})
-                </option>
-              ))}
-            </select>
-            <input
-              value={webhookEndpointForm.url}
-              onChange={(event) =>
-                setWebhookEndpointForm((current) => ({ ...current, url: event.target.value }))
-              }
-              placeholder="https://aaa.com/api/payment-webhook"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={webhookEndpointForm.isActive}
-                onChange={(event) =>
-                  setWebhookEndpointForm((current) => ({
-                    ...current,
-                    isActive: event.target.checked,
-                  }))
-                }
-              />
-              启用该异步通知地址
-            </label>
-            <div className="space-y-2 text-xs text-slate-400">
-              <p>这里配置的是独立服务端异步通知地址，系统会在订单进入终态后主动发起 POST JSON。</p>
-              <p>浏览器跳回 returnUrl 仍然保留，二者可以同时启用。</p>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-            disabled={isPending}
-          >
-            {webhookEndpointForm.editMode ? "保存修改" : "创建异步通知地址"}
-          </button>
-        </form>
-
-        <form
-          className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formElement = event.currentTarget;
-            const formData = new FormData(formElement);
-            startTransition(async () => {
-              const result = await requestJson("/api/admin/stripe", "POST", {
-                landingDomainId: formData.get("landingDomainId"),
-                accountLabel: formData.get("accountLabel"),
-                publishableKey: formData.get("publishableKey") || null,
-                secretKey: formData.get("secretKey"),
-                webhookSecret: formData.get("webhookSecret"),
-                isActive: formData.get("isActive") === "on",
-              });
-
-              if (result.ok) {
-                handleSuccess("Stripe 绑定已保存，列表已刷新。", () => {
-                  formElement.reset();
                 });
-                return;
-              }
+            } else {
+                setMessage(result.message ?? "删除失败");
+            }
+        });
+    };
 
-              setMessage(result.message ?? "保存失败");
-            });
-          }}
-        >
-          <div className="text-lg">绑定 Stripe 账号</div>
-          <div className="mt-4 grid gap-3">
-            <select
-              name="landingDomainId"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            >
-              {domains.map((domain) => (
-                <option key={domain.id} value={domain.id}>
-                  {domain.hostname} / {domain.label}
-                </option>
-              ))}
-            </select>
-            <input
-              name="accountLabel"
-              placeholder="Stripe 账号标签"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              name="publishableKey"
-              placeholder="Publishable Key（可选）"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              name="secretKey"
-              placeholder="Secret Key"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <input
-              name="webhookSecret"
-              placeholder="Webhook Secret"
-              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-            />
-            <label className="flex items-center gap-3 text-sm text-slate-300">
-              <input type="checkbox" name="isActive" defaultChecked />
-              启用该 Stripe 绑定
-            </label>
-          </div>
+    return (
+        <section className="mt-10 space-y-6">
+            {/* Tabs */}
+            <div className="flex gap-2 rounded-full bg-white/10 p-1">
+                <button
+                    onClick={() => setActiveTab("affiliates")}
+                    className={`rounded-full px-4 py-2 text-sm ${
+                        activeTab === "affiliates" ? "bg-white text-slate-950" : "text-slate-400"
+                    }`}
+                >
+                    分销商
+                </button>
+                <button
+                    onClick={() => setActiveTab("domains")}
+                    className={`rounded-full px-4 py-2 text-sm ${
+                        activeTab === "domains" ? "bg-white text-slate-950" : "text-slate-400"
+                    }`}
+                >
+                    域名
+                </button>
+            </div>
 
-          <button
-            type="submit"
-            className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-            disabled={isPending}
-          >
-            保存 Stripe 配置
-          </button>
-        </form>
-      </div>
+            {/* Affiliates Tab */}
+            {activeTab === "affiliates" && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Form */}
+                    <form
+                        className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            startTransition(async () => {
+                                const result = await requestJson(
+                                    "/api/admin/affiliates",
+                                    affiliateForm.editMode ? "PATCH" : "POST",
+                                    {
+                                        ...(affiliateForm.editMode ? { id: selectedAffiliateId } : {}),
+                                        name: affiliateForm.name,
+                                        isActive: affiliateForm.isActive,
+                                    },
+                                );
 
-      <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6 text-sm text-emerald-300">
-        {message || "建议每个分销商同时配置接单密钥和回跳签名密钥，并为每个支付域名单独绑定 Stripe 账号。"}
-      </div>
-    </section>
-  );
+                                if (result.ok) {
+                                    handleSuccess(
+                                        affiliateForm.editMode ? "分销商已更新" : "分销商已创建，系统已自动生成编码和密钥",
+                                        () => {
+                                            setSelectedAffiliateId("");
+                                            setAffiliateForm(emptyAffiliateForm());
+                                        },
+                                    );
+                                    return;
+                                }
+
+                                setMessage(result.message ?? "保存失败");
+                            });
+                        }}
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-lg">
+                                {affiliateForm.editMode ? "编辑分销商" : "新增分销商"}
+                            </div>
+                            <select
+                                value={selectedAffiliateId}
+                                onChange={(event) => {
+                                    const nextId = event.target.value;
+                                    setSelectedAffiliateId(nextId);
+                                    const selected = affiliates.find((a) => a.id === nextId);
+                                    setAffiliateForm(selected ? buildAffiliateForm(selected) : emptyAffiliateForm());
+                                }}
+                                className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
+                            >
+                                <option value="">新建</option>
+                                {affiliates.map((affiliate) => (
+                                    <option key={affiliate.id} value={affiliate.id}>
+                                        {affiliate.name} ({affiliate.domainCount} 域名)
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="mt-4 grid gap-3">
+                            <input
+                                value={affiliateForm.name}
+                                onChange={(event) =>
+                                    setAffiliateForm((current) => ({ ...current, name: event.target.value }))
+                                }
+                                placeholder="分销商名称"
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            />
+                            {affiliateForm.editMode && (
+                                <label className="flex items-center gap-3 text-sm text-slate-300">
+                                    <input
+                                        type="checkbox"
+                                        checked={affiliateForm.isActive}
+                                        onChange={(event) =>
+                                            setAffiliateForm((current) => ({
+                                                ...current,
+                                                isActive: event.target.checked,
+                                            }))
+                                        }
+                                    />
+                                    启用该分销商
+                                </label>
+                            )}
+                            <div className="space-y-1 text-xs text-slate-400">
+                                <p>创建分销商时，系统会自动生成编码和密钥。</p>
+                                <p>分销商可在自己的后台查看和配置回跳地址和 Webhook。</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                className="rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
+                                disabled={isPending || !affiliateForm.name}
+                            >
+                                {affiliateForm.editMode ? "保存修改" : "创建分销商"}
+                            </button>
+                            {affiliateForm.editMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteAffiliate(selectedAffiliateId)}
+                                    className="rounded-full border border-rose-500/30 px-5 py-2 text-sm text-rose-300 hover:bg-rose-500/10"
+                                    disabled={isPending}
+                                >
+                                    删除分销商
+                                </button>
+                            )}
+                        </div>
+                    </form>
+
+                    {/* List */}
+                    <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div className="text-lg">分销商列表</div>
+                        <div className="mt-4 space-y-3">
+                            {affiliates.length === 0 ? (
+                                <div className="text-slate-400">暂无分销商数据。</div>
+                            ) : (
+                                affiliates.map((affiliate) => (
+                                    <div key={affiliate.id} className="rounded-xl border border-slate-200 p-3">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <div className="font-medium">{affiliate.name}</div>
+                                                <div className="mt-1 text-xs text-slate-500">
+                                                    {affiliate.code} · {affiliate.domainCount} 域名
+                                                </div>
+                                            </div>
+                                            <div className={`text-xs ${affiliate.isActive ? "text-emerald-600" : "text-slate-400"}`}>
+                                                {affiliate.isActive ? "启用中" : "已停用"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Domains Tab */}
+            {activeTab === "domains" && (
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Form */}
+                    <form
+                        className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            startTransition(async () => {
+                                const result = await requestJson(
+                                    "/api/admin/domains",
+                                    domainForm.editMode ? "PATCH" : "POST",
+                                    {
+                                        ...(domainForm.editMode ? { id: domainForm.id } : {}),
+                                        hostname: domainForm.hostname,
+                                        label: domainForm.label,
+                                        affiliateId: domainForm.affiliateId || null,
+                                        stripeAccountId: domainForm.stripeAccountId || null,
+                                        templateCode: domainForm.templateCode,
+                                        isActive: domainForm.isActive,
+                                    },
+                                );
+
+                                if (result.ok) {
+                                    handleSuccess(
+                                        domainForm.editMode ? "域名已更新" : "域名已创建",
+                                        () => {
+                                            setSelectedDomainId("");
+                                            setDomainForm(emptyDomainForm());
+                                        },
+                                    );
+                                    return;
+                                }
+
+                                setMessage(result.message ?? "保存失败");
+                            });
+                        }}
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="text-lg">{domainForm.editMode ? "编辑域名" : "新增域名"}</div>
+                            <select
+                                value={selectedDomainId}
+                                onChange={(event) => {
+                                    const nextId = event.target.value;
+                                    setSelectedDomainId(nextId);
+                                    const selected = domains.find((d) => d.id === nextId);
+                                    setDomainForm(selected ? buildDomainForm(selected) : emptyDomainForm());
+                                }}
+                                className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
+                            >
+                                <option value="">新建</option>
+                                {domains.map((domain) => (
+                                    <option key={domain.id} value={domain.id}>
+                                        {domain.hostname}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="mt-4 grid gap-3">
+                            <input
+                                value={domainForm.hostname}
+                                onChange={(event) =>
+                                    setDomainForm((current) => ({ ...current, hostname: event.target.value }))
+                                }
+                                placeholder="pay.example.com"
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            />
+                            <input
+                                value={domainForm.label}
+                                onChange={(event) =>
+                                    setDomainForm((current) => ({ ...current, label: event.target.value }))
+                                }
+                                placeholder="域名标签 (自定义名称)"
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            />
+                            <select
+                                value={domainForm.affiliateId}
+                                onChange={(event) =>
+                                    setDomainForm((current) => ({ ...current, affiliateId: event.target.value }))
+                                }
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            >
+                                <option value="">暂不分配分销商</option>
+                                {affiliates.map((affiliate) => (
+                                    <option key={affiliate.id} value={affiliate.id}>
+                                        {affiliate.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                value={domainForm.stripeAccountId}
+                                onChange={(event) =>
+                                    setDomainForm((current) => ({ ...current, stripeAccountId: event.target.value }))
+                                }
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            >
+                                <option value="">暂不分配 Stripe 账号</option>
+                                {(stripeAccounts ?? []).map((account) => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.accountLabel} {account.isActive ? "" : "(已停用)"}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                value={domainForm.templateCode}
+                                onChange={(event) =>
+                                    setDomainForm((current) => ({
+                                        ...current,
+                                        templateCode: event.target.value as DomainFormState["templateCode"],
+                                    }))
+                                }
+                                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+                            >
+                                <option value="A">模板 A</option>
+                                <option value="B">模板 B</option>
+                                <option value="C">模板 C</option>
+                            </select>
+                            <label className="flex items-center gap-3 text-sm text-slate-300">
+                                <input
+                                    type="checkbox"
+                                    checked={domainForm.isActive}
+                                    onChange={(event) =>
+                                        setDomainForm((current) => ({ ...current, isActive: event.target.checked }))
+                                    }
+                                />
+                                启用该域名
+                            </label>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                className="rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
+                                disabled={isPending || !domainForm.hostname}
+                            >
+                                {domainForm.editMode ? "保存修改" : "创建域名"}
+                            </button>
+                            {domainForm.editMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteDomain(selectedDomainId)}
+                                    className="rounded-full border border-rose-500/30 px-5 py-2 text-sm text-rose-300 hover:bg-rose-500/10"
+                                    disabled={isPending}
+                                >
+                                    删除域名
+                                </button>
+                            )}
+                        </div>
+                    </form>
+
+                    {/* List */}
+                    <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div className="text-lg">域名列表</div>
+                        <div className="mt-4 space-y-3">
+                            {domains.length === 0 ? (
+                                <div className="text-slate-400">暂无域名数据。</div>
+                            ) : (
+                                domains.map((domain) => (
+                                    <div key={domain.id} className="rounded-xl border border-slate-200 p-3">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <div className="font-medium">{domain.hostname}</div>
+                                                <div className="mt-1 text-xs text-slate-500">{domain.label}</div>
+                                                {domain.affiliateName && (
+                                                    <div className="mt-1 text-xs text-slate-400">
+                                                        分销商: {domain.affiliateName}
+                                                    </div>
+                                                )}
+                                                {domain.stripeLabel && (
+                                                    <div className="mt-1 text-xs text-slate-400">
+                                                        Stripe: {domain.stripeLabel}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className={`text-xs ${domain.isActive ? "text-emerald-600" : "text-slate-400"}`}>
+                                                {domain.isActive ? "启用中" : "已停用"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Message */}
+            {message && (
+                <div className="rounded-[1.6rem] border border-white/10 bg-white/5 p-4 text-sm text-emerald-300">
+                    {message}
+                </div>
+            )}
+        </section>
+    );
 }
