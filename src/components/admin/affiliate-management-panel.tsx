@@ -18,28 +18,19 @@ type AffiliateManagementPanelProps = {
 };
 
 type AffiliateFormState = {
-  code: string;
   name: string;
-  intakeSecret: string;
-  callbackSecret: string;
   isActive: boolean;
   editMode: boolean;
 };
 
 const emptyAffiliateForm = (): AffiliateFormState => ({
-  code: "",
   name: "",
-  intakeSecret: "",
-  callbackSecret: "",
   isActive: true,
   editMode: false,
 });
 
 const buildAffiliateForm = (affiliate: AffiliateSummary): AffiliateFormState => ({
-  code: affiliate.code,
   name: affiliate.name,
-  intakeSecret: "",
-  callbackSecret: "",
   isActive: affiliate.isActive,
   editMode: true,
 });
@@ -66,7 +57,7 @@ export function AffiliateManagementPanel({
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [selectedAffiliateCode, setSelectedAffiliateCode] = useState("");
+  const [selectedAffiliateId, setSelectedAffiliateId] = useState("");
   const [affiliateForm, setAffiliateForm] = useState<AffiliateFormState>(emptyAffiliateForm);
 
   const handleSuccess = (nextMessage: string, reset: () => void) => {
@@ -87,19 +78,17 @@ export function AffiliateManagementPanel({
               "/api/admin/affiliates",
               affiliateForm.editMode ? "PATCH" : "POST",
               {
-                code: affiliateForm.code,
-                name: affiliateForm.name,
-                intakeSecret: affiliateForm.intakeSecret,
-                callbackSecret: affiliateForm.callbackSecret,
-                ...(affiliateForm.editMode ? { isActive: affiliateForm.isActive } : {}),
+                ...(affiliateForm.editMode
+                  ? { id: selectedAffiliateId, isActive: affiliateForm.isActive }
+                  : { name: affiliateForm.name }),
               },
             );
 
             if (result.ok) {
               handleSuccess(
-                affiliateForm.editMode ? "分销商已更新，列表已刷新。" : "分销商已创建，列表已刷新。",
+                affiliateForm.editMode ? "分销商已更新" : "分销商已创建，系统已自动生成编码和密钥",
                 () => {
-                  setSelectedAffiliateCode("");
+                  setSelectedAffiliateId("");
                   setAffiliateForm(emptyAffiliateForm());
                 },
               );
@@ -111,20 +100,22 @@ export function AffiliateManagementPanel({
         }}
       >
         <div className="flex items-center justify-between gap-3">
-          <div className="text-lg">{affiliateForm.editMode ? "编辑分销商" : "新增分销商"}</div>
+          <div className="text-lg">
+            {affiliateForm.editMode ? "编辑分销商" : "新增分销商"}
+          </div>
           <select
-            value={selectedAffiliateCode}
+            value={selectedAffiliateId}
             onChange={(event) => {
-              const nextCode = event.target.value;
-              setSelectedAffiliateCode(nextCode);
-              const selected = affiliates.find((affiliate) => affiliate.code === nextCode);
+              const nextId = event.target.value;
+              setSelectedAffiliateId(nextId);
+              const selected = affiliates.find((a) => a.id === nextId);
               setAffiliateForm(selected ? buildAffiliateForm(selected) : emptyAffiliateForm());
             }}
             className="rounded-xl bg-white/10 px-3 py-2 text-sm outline-none"
           >
             <option value="">新建</option>
             {affiliates.map((affiliate) => (
-              <option key={affiliate.id} value={affiliate.code}>
+              <option key={affiliate.id} value={affiliate.id}>
                 {affiliate.name}
               </option>
             ))}
@@ -133,41 +124,11 @@ export function AffiliateManagementPanel({
 
         <div className="mt-4 grid gap-3">
           <input
-            value={affiliateForm.code}
-            onChange={(event) =>
-              setAffiliateForm((current) => ({ ...current, code: event.target.value }))
-            }
-            placeholder="分销商编码 (唯一标识)"
-            className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-          />
-          <input
             value={affiliateForm.name}
             onChange={(event) =>
               setAffiliateForm((current) => ({ ...current, name: event.target.value }))
             }
             placeholder="分销商名称"
-            className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-          />
-          <input
-            value={affiliateForm.intakeSecret}
-            onChange={(event) =>
-              setAffiliateForm((current) => ({
-                ...current,
-                intakeSecret: event.target.value,
-              }))
-            }
-            placeholder={affiliateForm.editMode ? "输入新接单密钥以轮换" : "接单签名密钥"}
-            className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-          />
-          <input
-            value={affiliateForm.callbackSecret}
-            onChange={(event) =>
-              setAffiliateForm((current) => ({
-                ...current,
-                callbackSecret: event.target.value,
-              }))
-            }
-            placeholder={affiliateForm.editMode ? "输入新回跳密钥以轮换" : "回跳签名密钥"}
             className="rounded-xl bg-white/10 px-4 py-3 outline-none"
           />
           {affiliateForm.editMode ? (
@@ -186,15 +147,14 @@ export function AffiliateManagementPanel({
             </label>
           ) : null}
           <div className="space-y-2 text-xs text-slate-400">
-            <p>接单签名密钥用于校验分销商发来的 intake API 请求，必须每个分销商独立配置。</p>
-            <p>回跳签名密钥用于保护支付完成后的回跳参数，降低被伪造成功状态的风险。</p>
+            <p>创建分销商时，系统会自动生成唯一的编码和密钥，分销商可在自己的后台查看密钥。</p>
           </div>
         </div>
 
         <button
           type="submit"
           className="mt-4 rounded-full bg-white px-5 py-2 text-sm text-slate-950 disabled:opacity-50"
-          disabled={isPending}
+          disabled={isPending || !affiliateForm.name}
         >
           {affiliateForm.editMode ? "保存修改" : "创建分销商"}
         </button>
