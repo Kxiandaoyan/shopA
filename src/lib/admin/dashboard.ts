@@ -14,17 +14,21 @@ export async function loadAdminAffiliateSummaries() {
   try {
     const affiliates = await db.affiliate.findMany({
       include: {
-      domains: {
-        include: {
-          template: true,
+        domainAssignments: {
+          include: {
+            domain: {
+              include: {
+                template: true,
+              },
+            },
+          },
         },
-      },
-      returnUrls: {
-        where: { isActive: true },
-      },
-      webhookEndpoints: {
-        where: { isActive: true },
-      },
+        returnUrls: {
+          where: { isActive: true },
+        },
+        webhookEndpoints: {
+          where: { isActive: true },
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 24,
@@ -35,8 +39,8 @@ export async function loadAdminAffiliateSummaries() {
       code: affiliate.code,
       name: affiliate.name,
       isActive: affiliate.isActive,
-      domainCount: affiliate.domains.length,
-      domainHostnames: affiliate.domains.map((d) => d.hostname),
+      domainCount: affiliate.domainAssignments.length,
+      domainHostnames: affiliate.domainAssignments.map((a) => a.domain.hostname),
       returnUrlCount: affiliate.returnUrls.length,
       webhookEndpointCount: affiliate.webhookEndpoints.length,
     }));
@@ -47,10 +51,10 @@ export async function loadAdminAffiliateSummaries() {
 
 export async function loadAvailableDomainsForAffiliate() {
   try {
+    // 所有活跃域名都可以分配给分销商
     const domains = await db.landingDomain.findMany({
       where: {
         isActive: true,
-        affiliateId: null,
       },
       select: {
         id: true,
@@ -101,7 +105,11 @@ export async function loadAdminDomainSummaries() {
   try {
     const domains = await db.landingDomain.findMany({
       include: {
-        affiliate: true,
+        affiliateAssignments: {
+          include: {
+            affiliate: true,
+          },
+        },
         template: true,
         stripeAccount: true,
       },
@@ -114,8 +122,7 @@ export async function loadAdminDomainSummaries() {
       hostname: domain.hostname,
       label: domain.label,
       isActive: domain.isActive,
-      affiliateId: domain.affiliateId,
-      affiliateName: domain.affiliate?.name ?? "未分配",
+      affiliateNames: domain.affiliateAssignments.map((a) => a.affiliate.name).join(", ") || "未分配",
       templateCode: resolveStorefrontTemplate(domain.template?.templateCode),
       affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
         domain.affiliateCheckoutNameMode,
@@ -232,12 +239,16 @@ export async function loadAffiliateDetails(affiliateId: string) {
     const affiliate = await db.affiliate.findUnique({
       where: { id: affiliateId },
       include: {
-        domains: {
-          select: {
-            id: true,
-            hostname: true,
-            label: true,
-            isActive: true,
+        domainAssignments: {
+          include: {
+            domain: {
+              select: {
+                id: true,
+                hostname: true,
+                label: true,
+                isActive: true,
+              },
+            },
           },
         },
         returnUrls: {
@@ -268,7 +279,7 @@ export async function loadAffiliateDetails(affiliateId: string) {
       isActive: affiliate.isActive,
       intakeSecretEncrypted: affiliate.intakeSecretEncrypted,
       callbackSecretEncrypted: affiliate.callbackSecretEncrypted,
-      domains: affiliate.domains,
+      domains: affiliate.domainAssignments.map((a) => a.domain),
       returnUrls: affiliate.returnUrls,
       webhookEndpoints: affiliate.webhookEndpoints,
     };

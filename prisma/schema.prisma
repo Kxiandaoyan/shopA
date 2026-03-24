@@ -66,12 +66,26 @@ model Affiliate {
   callbackSecretEncrypted String?
   isActive                Boolean                @default(true)
   memberships             AffiliateMembership[]
-  domains                 LandingDomain[]
+  domainAssignments       AffiliateDomain[]
   orders                  Order[]
   returnUrls              AffiliateReturnUrl[]
   webhookEndpoints        AffiliateWebhookEndpoint[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
+}
+
+// 分销商与域名的多对多关系
+model AffiliateDomain {
+  id          String        @id @default(cuid())
+  affiliateId String
+  domainId    String
+  affiliate   Affiliate     @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  domain      LandingDomain @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+
+  @@unique([affiliateId, domainId])
+  @@index([affiliateId])
+  @@index([domainId])
 }
 
 model AffiliateMembership {
@@ -90,8 +104,7 @@ model LandingDomain {
   hostname                  String                    @unique
   label                     String
   isActive                  Boolean                   @default(true)
-  affiliateId               String?
-  affiliate                 Affiliate?                @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
+  affiliateAssignments      AffiliateDomain[]
   stripeAccountId           String?
   stripeAccount             StripeAccount?            @relation(fields: [stripeAccountId], references: [id], onDelete: SetNull)
   affiliateCheckoutNameMode String                    @default("CATALOG_RANDOM")

@@ -2,12 +2,23 @@ import { LogResult } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSuperAdminApi } from "@/lib/auth/api-access";
-import { validateActiveAffiliate } from "@/lib/admin/config-validation";
-import { domainAdminSchema } from "@/lib/admin/schemas";
 import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/logging/audit";
 
-const domainUpdateSchema = domainAdminSchema.extend({
+const domainCreateSchema = z.object({
+  hostname: z.string().trim().min(3),
+  label: z.string().trim().min(2),
+  affiliateIds: z.array(z.string()).optional().default([]),
+  stripeAccountId: z.string().trim().optional().nullable(),
+  templateCode: z.enum(["A", "B", "C"]).optional().nullable(),
+  affiliateCheckoutNameMode: z
+    .enum(["FIXED", "CATALOG_RANDOM", "SOURCE_PRODUCT"])
+    .default("CATALOG_RANDOM"),
+  affiliateCheckoutFixedName: z.string().trim().max(120).optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+
+const domainUpdateSchema = domainCreateSchema.extend({
   id: z.string().min(1),
 });
 
@@ -19,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const parsed = domainAdminSchema.safeParse(body);
+  const parsed = domainCreateSchema.safeParse(body);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -28,17 +39,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const affiliateValidation = await validateActiveAffiliate(parsed.data.affiliateId);
+  // 验证分销商是否存在
+  if (parsed.data.affiliateIds.length > 0) {
+    const affiliates = await db.affiliate.findMany({
+      where: { id: { in: parsed.data.affiliateIds } },
+    });
+    const validIds = new Set(affiliates.map((a) => a.id));
+    const invalidIds = parsed.data.affiliateIds.filter((id) => !validIds.has(id));
 
-  if (!affiliateValidation.ok) {
-    return NextResponse.json({ ok: false, message: affiliateValidation.message }, { status: 400 });
+    if (invalidIds.length > 0) {
+      return NextResponse.json(
+        { ok: false, message: `分销商不存在: ${invalidIds.join(", ")}` },
+        { status: 400 },
+      );
+    }
   }
 
   const domain = await db.landingDomain.upsert({
     where: { hostname: parsed.data.hostname },
     update: {
       label: parsed.data.label,
-      affiliateId: parsed.data.affiliateId || null,
       stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
@@ -50,7 +70,6 @@ export async function POST(request: Request) {
     create: {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
-      affiliateId: parsed.data.affiliateId || null,
       stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
@@ -60,6 +79,22 @@ export async function POST(request: Request) {
       isActive: parsed.data.isActive,
     },
   });
+
+  // 管理域名与分销商的关联 - 先删除旧关联，再创建新关联
+  await db.affiliateDomain.deleteMany({
+    where: { domainId: domain.id },
+  });
+
+  if (parsed.data.affiliateIds.length > 0) {
+    for (const affiliateId of parsed.data.affiliateIds) {
+      await db.affiliateDomain.create({
+        data: {
+          domainId: domain.id,
+          affiliateId,
+        },
+      });
+    }
+  }
 
   if (parsed.data.templateCode) {
     await db.domainTemplate.upsert({
@@ -71,6 +106,10 @@ export async function POST(request: Request) {
         landingDomainId: domain.id,
         templateCode: parsed.data.templateCode,
       },
+    });
+  } else {
+    await db.domainTemplate.deleteMany({
+      where: { landingDomainId: domain.id },
     });
   }
 
@@ -103,10 +142,20 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const affiliateValidation = await validateActiveAffiliate(parsed.data.affiliateId);
+  // 验证分销商是否存在
+  if (parsed.data.affiliateIds.length > 0) {
+    const affiliates = await db.affiliate.findMany({
+      where: { id: { in: parsed.data.affiliateIds } },
+    });
+    const validIds = new Set(affiliates.map((a) => a.id));
+    const invalidIds = parsed.data.affiliateIds.filter((id) => !validIds.has(id));
 
-  if (!affiliateValidation.ok) {
-    return NextResponse.json({ ok: false, message: affiliateValidation.message }, { status: 400 });
+    if (invalidIds.length > 0) {
+      return NextResponse.json(
+        { ok: false, message: `分销商不存在: ${invalidIds.join(", ")}` },
+        { status: 400 },
+      );
+    }
   }
 
   const domain = await db.landingDomain.update({
@@ -114,7 +163,6 @@ export async function PATCH(request: Request) {
     data: {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
-      affiliateId: parsed.data.affiliateId || null,
       stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
@@ -124,6 +172,22 @@ export async function PATCH(request: Request) {
       isActive: parsed.data.isActive,
     },
   });
+
+  // 管理域名与分销商的关联 - 先删除旧关联，再创建新关联
+  await db.affiliateDomain.deleteMany({
+    where: { domainId: domain.id },
+  });
+
+  if (parsed.data.affiliateIds.length > 0) {
+    for (const affiliateId of parsed.data.affiliateIds) {
+      await db.affiliateDomain.create({
+        data: {
+          domainId: domain.id,
+          affiliateId,
+        },
+      });
+    }
+  }
 
   if (parsed.data.templateCode) {
     await db.domainTemplate.upsert({

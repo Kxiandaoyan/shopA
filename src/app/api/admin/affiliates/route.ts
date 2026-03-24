@@ -13,7 +13,7 @@ const affiliateCreateSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   displayName: z.string().trim().min(1).optional(),
-  domainId: z.string().optional().nullable(),
+  domainIds: z.array(z.string()).optional().default([]),
 });
 
 const affiliateUpdateSchema = z.object({
@@ -66,16 +66,16 @@ export async function POST(request: Request) {
   const intakeSecret = generateSecret();
   const callbackSecret = generateSecret();
 
-  // If no domain specified, find an available one
-  let domainId = parsed.data.domainId;
-  if (!domainId) {
+  // If no domain specified, find any active domain to assign
+  let domainIds = parsed.data.domainIds;
+  if (domainIds.length === 0) {
     const availableDomain = await db.landingDomain.findFirst({
-      where: {
-        isActive: true,
-        affiliateId: null,
-      },
+      where: { isActive: true },
+      select: { id: true },
     });
-    domainId = availableDomain?.id ?? null;
+    if (availableDomain) {
+      domainIds = [availableDomain.id];
+    }
   }
 
   const displayName = parsed.data.displayName || parsed.data.name;
@@ -111,15 +111,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Assign domain if available
-    if (domainId) {
-      await tx.landingDomain.update({
-        where: { id: domainId },
-        data: { affiliateId: affiliate.id },
-      });
+    // Create domain assignments
+    if (domainIds.length > 0) {
+      for (const domainId of domainIds) {
+        await tx.affiliateDomain.create({
+          data: {
+            affiliateId: affiliate.id,
+            domainId,
+          },
+        });
+      }
     }
 
-    return { affiliate, user, domainId };
+    return { affiliate, user, domainIds };
   });
 
   await writeAuditLog({
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
       code: result.affiliate.code,
       name: result.affiliate.name,
       userEmail: result.user.email,
-      domainAssigned: !!result.domainId,
+      domainCount: result.domainIds.length,
     },
   });
 
@@ -145,7 +149,7 @@ export async function POST(request: Request) {
       intakeSecret,
       callbackSecret,
       loginEmail: result.user.email,
-      domainAssigned: !!result.domainId,
+      domainCount: result.domainIds.length,
     },
   });
 }
@@ -210,7 +214,7 @@ export async function DELETE(request: Request) {
     where: { id },
     include: {
       memberships: true,
-      domains: true,
+      domainAssignments: true,
     },
   });
 
@@ -220,10 +224,9 @@ export async function DELETE(request: Request) {
 
   // Delete everything in a transaction
   await db.$transaction(async (tx) => {
-    // Unassign domains
-    await tx.landingDomain.updateMany({
+    // Delete domain assignments (cascade will handle this, but being explicit)
+    await tx.affiliateDomain.deleteMany({
       where: { affiliateId: id },
-      data: { affiliateId: null },
     });
 
     // Delete memberships

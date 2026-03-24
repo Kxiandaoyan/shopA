@@ -84,9 +84,13 @@ export async function POST(request: Request) {
   const affiliate = await db.affiliate.findUnique({
     where: { code: payload.affiliateCode },
     include: {
-      domains: {
-        where: { isActive: true },
-        include: { template: true, stripeAccount: true },
+      domainAssignments: {
+        where: { domain: { isActive: true } },
+        include: {
+          domain: {
+            include: { template: true, stripeAccount: true },
+          },
+        },
       },
       returnUrls: {
         where: { isActive: true },
@@ -94,7 +98,9 @@ export async function POST(request: Request) {
     },
   });
 
-  if (!affiliate || !affiliate.isActive || affiliate.domains.length === 0) {
+  const activeDomains = affiliate?.domainAssignments.map((a) => a.domain) ?? [];
+
+  if (!affiliate || !affiliate.isActive || activeDomains.length === 0) {
     return NextResponse.json(
       { ok: false, message: "No active domain configured for affiliate" },
       { status: 400 },
@@ -191,7 +197,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const selectedDomain = randomItem(affiliate.domains);
+  const selectedDomain = randomItem(activeDomains);
   const seed = `${payload.affiliateCode}:${payload.externalOrderId}:${payload.timestamp}:${payload.nonce}`;
   const token = createOrderToken(seed);
 

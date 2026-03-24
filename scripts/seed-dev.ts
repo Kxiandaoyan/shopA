@@ -56,14 +56,27 @@ async function main() {
     where: { hostname: "demo.localhost" },
     update: {
       label: "Demo Domain",
-      affiliateId: affiliate.id,
       isActive: true,
     },
     create: {
       hostname: "demo.localhost",
       label: "Demo Domain",
-      affiliateId: affiliate.id,
       isActive: true,
+    },
+  });
+
+  // 创建域名与分销商的关联
+  await db.affiliateDomain.upsert({
+    where: {
+      affiliateId_domainId: {
+        affiliateId: affiliate.id,
+        domainId: domain.id,
+      },
+    },
+    update: {},
+    create: {
+      affiliateId: affiliate.id,
+      domainId: domain.id,
     },
   });
 

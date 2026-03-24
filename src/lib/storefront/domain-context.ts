@@ -6,7 +6,7 @@ export type DomainContext = {
   host: string;
   template: StorefrontTemplateCode;
   hasStripeAccount: boolean;
-  affiliateName: string | null;
+  affiliateNames: string[];
 };
 
 export async function loadDomainContext(host: string): Promise<DomainContext> {
@@ -16,16 +16,24 @@ export async function loadDomainContext(host: string): Promise<DomainContext> {
       include: {
         template: true,
         stripeAccount: true,
-        affiliate: true,
+        affiliateAssignments: {
+          include: {
+            affiliate: true,
+          },
+        },
       },
     });
+
+    const affiliateNames = landingDomain?.affiliateAssignments
+      .map((a) => a.affiliate.name)
+      .filter(Boolean) ?? [];
 
     return {
       domainId: landingDomain?.id ?? null,
       host,
       template: resolveStorefrontTemplate(landingDomain?.template?.templateCode),
       hasStripeAccount: Boolean(landingDomain?.stripeAccount?.isActive),
-      affiliateName: landingDomain?.affiliate?.name ?? null,
+      affiliateNames,
     };
   } catch {
     return {
@@ -33,7 +41,7 @@ export async function loadDomainContext(host: string): Promise<DomainContext> {
       host,
       template: "A",
       hasStripeAccount: false,
-      affiliateName: null,
+      affiliateNames: [],
     };
   }
 }
