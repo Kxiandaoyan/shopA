@@ -39,9 +39,13 @@ export function AffiliateIntegrationPanel({
   stripeAccounts,
 }: AffiliateIntegrationPanelProps) {
   const [message, setMessage] = useState("");
+  const [testResult, setTestResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [returnUrlForm, setReturnUrlForm] = useState({ url: "", isActive: true });
   const [webhookForm, setWebhookForm] = useState({ url: "", isActive: true });
+
+  const activeReturnUrls = affiliate.returnUrls.filter((u) => u.isActive);
+  const activeWebhooks = affiliate.webhookEndpoints.filter((w) => w.isActive);
 
   const handleAddReturnUrl = () => {
     if (!returnUrlForm.url) return;
@@ -73,6 +77,48 @@ export function AffiliateIntegrationPanel({
         window.location.reload();
       } else {
         setMessage(result.message ?? "添加失败");
+      }
+    });
+  };
+
+  // 测试回跳
+  const handleTestCallback = (url: string) => {
+    startTransition(async () => {
+      const result = await requestJson("/api/affiliate/test/callback", "POST", {
+        url,
+      });
+
+      if (result.ok) {
+        setTestResult({
+          type: "success",
+          message: `回跳测试成功！已在新窗口打开测试页面。状态码: ${result.status || "N/A"}`,
+        });
+      } else {
+        setTestResult({
+          type: "error",
+          message: result.message || "回跳测试失败",
+        });
+      }
+    });
+  };
+
+  // 测试 Webhook
+  const handleTestWebhook = (url: string) => {
+    startTransition(async () => {
+      const result = await requestJson("/api/affiliate/test/webhook", "POST", {
+        url,
+      });
+
+      if (result.ok) {
+        setTestResult({
+          type: "success",
+          message: `Webhook 测试已发送！响应状态: ${result.responseStatus || "N/A"}，响应时间: ${result.responseTime || "N/A"}ms`,
+        });
+      } else {
+        setTestResult({
+          type: "error",
+          message: result.message || "Webhook 测试失败",
+        });
       }
     });
   };
@@ -166,21 +212,39 @@ export function AffiliateIntegrationPanel({
 
       {/* 配置回跳地址 */}
       <div className="rounded-[1.6rem] border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold">回跳地址白名单</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">回跳地址白名单</h2>
+          {activeReturnUrls.length > 0 && (
+            <span className="text-xs text-emerald-600">{activeReturnUrls.length} 个已启用</span>
+          )}
+        </div>
         <p className="mt-2 text-sm text-slate-500">
           支付完成后会跳转到这些地址之一，携带订单状态参数。
         </p>
 
-        <div className="mt-4 space-y-2">
-          {affiliate.returnUrls.map((url) => (
-            <div key={url.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
-              <code className="text-xs">{url.url}</code>
-              <div className={`text-xs ${url.isActive ? "text-emerald-600" : "text-slate-400"}`}>
-                {url.isActive ? "启用中" : "已停用"}
+        {affiliate.returnUrls.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {affiliate.returnUrls.map((url) => (
+              <div key={url.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                <code className="text-xs">{url.url}</code>
+                <div className="flex items-center gap-2">
+                  {url.isActive && (
+                    <button
+                      onClick={() => handleTestCallback(url.url)}
+                      disabled={isPending}
+                      className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      测试
+                    </button>
+                  )}
+                  <div className={`text-xs ${url.isActive ? "text-emerald-600" : "text-slate-400"}`}>
+                    {url.isActive ? "启用中" : "已停用"}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3">
           <input
@@ -211,21 +275,39 @@ export function AffiliateIntegrationPanel({
 
       {/* 配置 Webhook */}
       <div className="rounded-[1.6rem] border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold">Webhook 通知地址</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Webhook 通知地址</h2>
+          {activeWebhooks.length > 0 && (
+            <span className="text-xs text-emerald-600">{activeWebhooks.length} 个已启用</span>
+          )}
+        </div>
         <p className="mt-2 text-sm text-slate-500">
           订单进入终态后会向这些地址发送 POST JSON 通知。
         </p>
 
-        <div className="mt-4 space-y-2">
-          {affiliate.webhookEndpoints.map((endpoint) => (
-            <div key={endpoint.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
-              <code className="text-xs">{endpoint.url}</code>
-              <div className={`text-xs ${endpoint.isActive ? "text-emerald-600" : "text-slate-400"}`}>
-                {endpoint.isActive ? "启用中" : "已停用"}
+        {affiliate.webhookEndpoints.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {affiliate.webhookEndpoints.map((endpoint) => (
+              <div key={endpoint.id} className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+                <code className="text-xs">{endpoint.url}</code>
+                <div className="flex items-center gap-2">
+                  {endpoint.isActive && (
+                    <button
+                      onClick={() => handleTestWebhook(endpoint.url)}
+                      disabled={isPending}
+                      className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      测试
+                    </button>
+                  )}
+                  <div className={`text-xs ${endpoint.isActive ? "text-emerald-600" : "text-slate-400"}`}>
+                    {endpoint.isActive ? "启用中" : "已停用"}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3">
           <input
@@ -253,6 +335,19 @@ export function AffiliateIntegrationPanel({
           </div>
         </div>
       </div>
+
+      {/* 测试结果 */}
+      {testResult && (
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            testResult.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-rose-200 bg-rose-50 text-rose-700"
+          }`}
+        >
+          {testResult.message}
+        </div>
+      )}
 
       {message && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
