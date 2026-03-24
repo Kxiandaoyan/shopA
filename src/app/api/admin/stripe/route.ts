@@ -1,7 +1,6 @@
 import { LogResult } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { validateActiveLandingDomain } from "@/lib/admin/config-validation";
 import { requireSuperAdminApi } from "@/lib/auth/api-access";
 import { stripeAdminSchema } from "@/lib/admin/schemas";
 import { db } from "@/lib/db";
@@ -11,6 +10,40 @@ import { encryptValue } from "@/lib/security/encryption";
 const stripeUpdateSchema = stripeAdminSchema.extend({
   id: z.string().optional(),
 });
+
+export async function GET() {
+  const auth = await requireSuperAdminApi();
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const accounts = await db.stripeAccount.findMany({
+    include: {
+      landingDomains: {
+        select: {
+          id: true,
+          hostname: true,
+          label: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    accounts: accounts.map((account) => ({
+      id: account.id,
+      accountLabel: account.accountLabel,
+      isActive: account.isActive,
+      webhookPath: `/api/stripe/webhooks/${account.id}`,
+      domainCount: account.landingDomains.length,
+      domains: account.landingDomains,
+      createdAt: account.createdAt.toISOString(),
+    })),
+  });
+}
 
 export async function POST(request: Request) {
   const auth = await requireSuperAdminApi();
@@ -29,23 +62,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const domainValidation = await validateActiveLandingDomain(parsed.data.landingDomainId);
-
-  if (!domainValidation.ok) {
-    return NextResponse.json({ ok: false, message: domainValidation.message }, { status: 400 });
-  }
-
-  const account = await db.stripeAccount.upsert({
-    where: { landingDomainId: parsed.data.landingDomainId },
-    update: {
-      accountLabel: parsed.data.accountLabel,
-      publishableKey: parsed.data.publishableKey || null,
-      secretKeyEncrypted: encryptValue(parsed.data.secretKey),
-      webhookSecret: encryptValue(parsed.data.webhookSecret),
-      isActive: parsed.data.isActive,
-    },
-    create: {
-      landingDomainId: parsed.data.landingDomainId,
+  const account = await db.stripeAccount.create({
+    data: {
       accountLabel: parsed.data.accountLabel,
       publishableKey: parsed.data.publishableKey || null,
       secretKeyEncrypted: encryptValue(parsed.data.secretKey),
@@ -56,12 +74,11 @@ export async function POST(request: Request) {
 
   await writeAuditLog({
     actorId: auth.session.sub,
-    eventType: "admin.stripe_account_upserted",
+    eventType: "admin.stripe_account_created",
     result: LogResult.SUCCESS,
     targetType: "stripe_account",
     targetId: account.id,
     metadata: {
-      landingDomainId: parsed.data.landingDomainId,
       accountLabel: parsed.data.accountLabel,
       isActive: parsed.data.isActive,
       webhookPath: `/api/stripe/webhooks/${account.id}`,
@@ -92,21 +109,32 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const domainValidation = await validateActiveLandingDomain(parsed.data.landingDomainId);
+  if (!parsed.data.id) {
+    return NextResponse.json({ ok: false, message: "缺少账号 ID" }, { status: 400 });
+  }
 
-  if (!domainValidation.ok) {
-    return NextResponse.json({ ok: false, message: domainValidation.message }, { status: 400 });
+  const updateData: {
+    accountLabel: string;
+    publishableKey: string | null;
+    isActive: boolean;
+    secretKeyEncrypted?: string;
+    webhookSecret?: string;
+  } = {
+    accountLabel: parsed.data.accountLabel,
+    publishableKey: parsed.data.publishableKey || null,
+    isActive: parsed.data.isActive,
+  };
+
+  if (parsed.data.secretKey) {
+    updateData.secretKeyEncrypted = encryptValue(parsed.data.secretKey);
+  }
+  if (parsed.data.webhookSecret) {
+    updateData.webhookSecret = encryptValue(parsed.data.webhookSecret);
   }
 
   const account = await db.stripeAccount.update({
-    where: { landingDomainId: parsed.data.landingDomainId },
-    data: {
-      accountLabel: parsed.data.accountLabel,
-      publishableKey: parsed.data.publishableKey || null,
-      secretKeyEncrypted: encryptValue(parsed.data.secretKey),
-      webhookSecret: encryptValue(parsed.data.webhookSecret),
-      isActive: parsed.data.isActive,
-    },
+    where: { id: parsed.data.id },
+    data: updateData,
   });
 
   await writeAuditLog({
@@ -116,7 +144,6 @@ export async function PATCH(request: Request) {
     targetType: "stripe_account",
     targetId: account.id,
     metadata: {
-      landingDomainId: parsed.data.landingDomainId,
       accountLabel: parsed.data.accountLabel,
       isActive: parsed.data.isActive,
       webhookPath: `/api/stripe/webhooks/${account.id}`,
@@ -128,4 +155,55 @@ export async function PATCH(request: Request) {
     accountId: account.id,
     webhookPath: `/api/stripe/webhooks/${account.id}`,
   });
+}
+
+export async function DELETE(request: Request) {
+  const auth = await requireSuperAdminApi();
+
+  if (!auth.ok) {
+    return auth.response;
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json({ ok: false, message: "缺少账号 ID" }, { status: 400 });
+  }
+
+  const account = await db.stripeAccount.findUnique({
+    where: { id },
+    include: {
+      landingDomains: { select: { hostname: true } },
+    },
+  });
+
+  if (!account) {
+    return NextResponse.json({ ok: false, message: "账号不存在" }, { status: 404 });
+  }
+
+  if (account.landingDomains.length > 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `该账号已绑定 ${account.landingDomains.length} 个域名，请先解绑`,
+      },
+      { status: 400 },
+    );
+  }
+
+  await db.stripeAccount.delete({ where: { id } });
+
+  await writeAuditLog({
+    actorId: auth.session.sub,
+    eventType: "admin.stripe_account_deleted",
+    result: LogResult.SUCCESS,
+    targetType: "stripe_account",
+    targetId: id,
+    metadata: {
+      accountLabel: account.accountLabel,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
 }

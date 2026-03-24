@@ -14,7 +14,6 @@ import { applyPaymentState } from "@/lib/stripe/order-state";
 type ResolvedWebhookEvent = {
   event: Stripe.Event;
   stripeAccountId: string;
-  landingDomainId: string;
 };
 
 async function constructWebhookEventForAccount(
@@ -42,7 +41,6 @@ async function constructWebhookEventForAccount(
     return {
       event,
       stripeAccountId: account.id,
-      landingDomainId: account.landingDomainId,
     } satisfies ResolvedWebhookEvent;
   } catch {
     return null;
@@ -326,7 +324,6 @@ export async function processWebhookEvent(resolved: ResolvedWebhookEvent) {
     }
     default: {
       await writeRedirectLog({
-        landingDomainId: resolved.landingDomainId,
         eventType: "stripe.webhook.ignored",
         metadata: {
           stripeEventType: resolved.event.type,

@@ -65,8 +65,7 @@ export default async function AdminLogsPage({ searchParams }: AdminLogsPageProps
   ]);
 
   return (
-    <main className="min-h-screen bg-[#111827] px-8 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.24em] text-slate-400">系统日志</div>
@@ -202,10 +201,9 @@ export default async function AdminLogsPage({ searchParams }: AdminLogsPageProps
           )}
         </div>
 
-        <p className="mt-6 text-xs leading-6 text-slate-500">
-          导出会保留当前筛选条件，最多导出最近 5000 条匹配日志。
-        </p>
-      </div>
-    </main>
+      <p className="mt-6 text-xs leading-6 text-slate-500">
+        导出会保留当前筛选条件，最多导出最近 5000 条匹配日志。
+      </p>
+    </div>
   );
 }

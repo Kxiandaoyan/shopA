@@ -179,7 +179,7 @@ function buildToneClass(scope: "admin" | "affiliate", tone: TimelineEntry["tone"
 export function OrderDetailView({ detail, scope }: OrderDetailViewProps) {
   const shellClass =
     scope === "admin"
-      ? "min-h-screen bg-slate-950 px-8 py-10 text-white"
+      ? ""
       : "min-h-screen bg-stone-100 px-8 py-10 text-slate-900";
   const panelClass =
     scope === "admin"
@@ -194,9 +194,8 @@ export function OrderDetailView({ detail, scope }: OrderDetailViewProps) {
   const backHref = buildBackHref(scope);
   const timeline = buildTimeline(detail);
 
-  return (
-    <main className={shellClass}>
-      <div className="mx-auto max-w-7xl space-y-6">
+  const content = (
+    <div className="mx-auto max-w-7xl space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className={`text-xs uppercase tracking-[0.24em] ${subtleClass}`}>订单详情</div>
@@ -455,6 +454,11 @@ export function OrderDetailView({ detail, scope }: OrderDetailViewProps) {
           </aside>
         </div>
       </div>
-    </main>
-  );
+    );
+
+  if (scope === "admin") {
+    return content;
+  }
+
+  return <main className={shellClass}>{content}</main>;
 }

@@ -11,13 +11,16 @@ export type StripeBinding = {
 };
 
 export async function loadStripeBindingByDomainId(landingDomainId: string): Promise<StripeBinding | null> {
-  const stripeAccount = await db.stripeAccount.findUnique({
-    where: { landingDomainId },
+  const domain = await db.landingDomain.findUnique({
+    where: { id: landingDomainId },
+    include: { stripeAccount: true },
   });
 
-  if (!stripeAccount || !stripeAccount.isActive) {
+  if (!domain?.stripeAccount || !domain.stripeAccount.isActive) {
     return null;
   }
+
+  const stripeAccount = domain.stripeAccount;
 
   return {
     stripeAccountId: stripeAccount.id,

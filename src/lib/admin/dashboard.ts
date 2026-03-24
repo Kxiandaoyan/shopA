@@ -94,12 +94,9 @@ export async function loadAdminDomainSummaries() {
         domain.affiliateCheckoutNameMode,
       ) as AffiliateCheckoutNameMode,
       affiliateCheckoutFixedName: domain.affiliateCheckoutFixedName,
-      stripeAccountId: domain.stripeAccount?.id ?? null,
-      stripeLabel: domain.stripeAccount?.accountLabel ?? "未配置",
+      stripeAccountId: domain.stripeAccountId,
+      stripeLabel: domain.stripeAccount?.accountLabel ?? null,
       stripeActive: domain.stripeAccount?.isActive ?? false,
-      stripeWebhookPath: domain.stripeAccount
-        ? `/api/stripe/webhooks/${domain.stripeAccount.id}`
-        : null,
     }));
   } catch {
     return [];
@@ -171,6 +168,85 @@ export async function loadAdminProductSummaries() {
     }));
   } catch {
     return [];
+  }
+}
+
+export async function loadAdminStripeAccountSummaries() {
+  try {
+    const accounts = await db.stripeAccount.findMany({
+      include: {
+        landingDomains: {
+          select: {
+            id: true,
+            hostname: true,
+            label: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return accounts.map((account) => ({
+      id: account.id,
+      accountLabel: account.accountLabel,
+      isActive: account.isActive,
+      webhookPath: `/api/stripe/webhooks/${account.id}`,
+      domainCount: account.landingDomains.length,
+      domains: account.landingDomains,
+      createdAt: account.createdAt.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadAffiliateDetails(affiliateId: string) {
+  try {
+    const affiliate = await db.affiliate.findUnique({
+      where: { id: affiliateId },
+      include: {
+        domains: {
+          select: {
+            id: true,
+            hostname: true,
+            label: true,
+            isActive: true,
+          },
+        },
+        returnUrls: {
+          select: {
+            id: true,
+            url: true,
+            isActive: true,
+          },
+        },
+        webhookEndpoints: {
+          select: {
+            id: true,
+            url: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!affiliate) {
+      return null;
+    }
+
+    return {
+      id: affiliate.id,
+      code: affiliate.code,
+      name: affiliate.name,
+      isActive: affiliate.isActive,
+      intakeSecretEncrypted: affiliate.intakeSecretEncrypted,
+      callbackSecretEncrypted: affiliate.callbackSecretEncrypted,
+      domains: affiliate.domains,
+      returnUrls: affiliate.returnUrls,
+      webhookEndpoints: affiliate.webhookEndpoints,
+    };
+  } catch {
+    return null;
   }
 }
 

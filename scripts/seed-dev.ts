@@ -95,8 +95,8 @@ async function main() {
     },
   });
 
-  await db.stripeAccount.upsert({
-    where: { landingDomainId: domain.id },
+  const stripeAccount = await db.stripeAccount.upsert({
+    where: { id: "stripe_demo_001" },
     update: {
       accountLabel: "Demo Stripe",
       publishableKey: "pk_test_demo",
@@ -105,13 +105,19 @@ async function main() {
       isActive: false,
     },
     create: {
-      landingDomainId: domain.id,
+      id: "stripe_demo_001",
       accountLabel: "Demo Stripe",
       publishableKey: "pk_test_demo",
       secretKeyEncrypted: encryptValue("sk_test_demo"),
       webhookSecret: encryptValue("whsec_demo"),
       isActive: false,
     },
+  });
+
+  // Link domain to stripe account
+  await db.landingDomain.update({
+    where: { id: domain.id },
+    data: { stripeAccountId: stripeAccount.id },
   });
 
   const admin = await db.user.upsert({

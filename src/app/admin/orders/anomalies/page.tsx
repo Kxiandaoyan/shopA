@@ -49,8 +49,7 @@ export default async function AdminOrderAnomaliesPage({
   const anomalies = await loadAdminOrderAnomalies(filters);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-8 py-10 text-white">
-      <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.24em] text-slate-400">异常订单</div>
@@ -210,7 +209,6 @@ export default async function AdminOrderAnomaliesPage({
         <p className="mt-6 text-xs leading-6 text-slate-500">
           异常视图基于最近订单和当前配置实时计算，用于帮助人工排查，不会直接改动订单状态。
         </p>
-      </div>
-    </main>
+    </div>
   );
 }

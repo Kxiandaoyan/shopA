@@ -58,8 +58,7 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
   ]);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-8 py-10 text-white">
-      <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.24em] text-slate-400">全局订单中心</div>
@@ -244,7 +243,6 @@ export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageP
             </tbody>
           </table>
         </div>
-      </div>
-    </main>
+    </div>
   );
 }

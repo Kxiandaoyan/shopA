@@ -23,7 +23,8 @@ type DomainSummary = {
   templateCode: "A" | "B" | "C";
   affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
   affiliateCheckoutFixedName: string | null;
-  stripeLabel: string;
+  stripeAccountId: string | null;
+  stripeLabel: string | null;
   stripeActive: boolean;
 };
 
@@ -35,11 +36,18 @@ type ReturnUrlSummary = {
   isActive: boolean;
 };
 
+type StripeAccountSummary = {
+  id: string;
+  accountLabel: string;
+  isActive: boolean;
+};
+
 type AdminConfigPanelProps = {
   affiliates: AffiliateSummary[];
   domains: DomainSummary[];
   returnUrls: ReturnUrlSummary[];
   webhookEndpoints: ReturnUrlSummary[];
+  stripeAccounts?: StripeAccountSummary[];
 };
 
 type AffiliateFormState = {
@@ -56,6 +64,7 @@ type DomainFormState = {
   hostname: string;
   label: string;
   affiliateId: string;
+  stripeAccountId: string;
   templateCode: string;
   affiliateCheckoutNameMode: "FIXED" | "CATALOG_RANDOM" | "SOURCE_PRODUCT";
   affiliateCheckoutFixedName: string;
@@ -101,6 +110,7 @@ const emptyDomainForm = (): DomainFormState => ({
   hostname: "",
   label: "",
   affiliateId: "",
+  stripeAccountId: "",
   templateCode: "",
   affiliateCheckoutNameMode: "CATALOG_RANDOM",
   affiliateCheckoutFixedName: "",
@@ -113,6 +123,7 @@ const buildDomainForm = (domain: DomainSummary): DomainFormState => ({
   hostname: domain.hostname,
   label: domain.label,
   affiliateId: domain.affiliateId ?? "",
+  stripeAccountId: domain.stripeAccountId ?? "",
   templateCode: domain.templateCode,
   affiliateCheckoutNameMode: domain.affiliateCheckoutNameMode,
   affiliateCheckoutFixedName: domain.affiliateCheckoutFixedName ?? "",
@@ -171,6 +182,7 @@ export function AdminConfigPanel({
   domains,
   returnUrls,
   webhookEndpoints,
+  stripeAccounts = [],
 }: AdminConfigPanelProps) {
   const router = useRouter();
   const [message, setMessage] = useState("");
@@ -333,6 +345,7 @@ export function AdminConfigPanel({
                   hostname: domainForm.hostname,
                   label: domainForm.label,
                   affiliateId: domainForm.affiliateId || null,
+                  stripeAccountId: domainForm.stripeAccountId || null,
                   templateCode: domainForm.templateCode || null,
                   affiliateCheckoutNameMode: domainForm.affiliateCheckoutNameMode,
                   affiliateCheckoutFixedName:
@@ -407,6 +420,20 @@ export function AdminConfigPanel({
               {affiliates.map((affiliate) => (
                 <option key={affiliate.id} value={affiliate.id}>
                   {affiliate.name} ({affiliate.code})
+                </option>
+              ))}
+            </select>
+            <select
+              value={domainForm.stripeAccountId}
+              onChange={(event) =>
+                setDomainForm((current) => ({ ...current, stripeAccountId: event.target.value }))
+              }
+              className="rounded-xl bg-white/10 px-4 py-3 outline-none"
+            >
+              <option value="">暂不分配 Stripe 账号</option>
+              {stripeAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.accountLabel} {account.isActive ? "" : "(已停用)"}
                 </option>
               ))}
             </select>

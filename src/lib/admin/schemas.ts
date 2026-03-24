@@ -11,6 +11,7 @@ export const domainAdminSchema = z.object({
   hostname: z.string().trim().min(3),
   label: z.string().trim().min(2),
   affiliateId: z.string().trim().optional().nullable(),
+  stripeAccountId: z.string().trim().optional().nullable(),
   templateCode: z.enum(["A", "B", "C"]).optional().nullable(),
   affiliateCheckoutNameMode: z
     .enum(["FIXED", "CATALOG_RANDOM", "SOURCE_PRODUCT"])
@@ -43,7 +44,7 @@ export const webhookEndpointAdminSchema = z.object({
 });
 
 export const stripeAdminSchema = z.object({
-  landingDomainId: z.string().trim().min(1),
+  id: z.string().trim().optional(),
   accountLabel: z.string().trim().min(2),
   publishableKey: z.string().trim().optional().nullable(),
   secretKey: z.string().trim().min(10),

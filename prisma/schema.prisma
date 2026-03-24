@@ -92,14 +92,17 @@ model LandingDomain {
   isActive                  Boolean                   @default(true)
   affiliateId               String?
   affiliate                 Affiliate?                @relation(fields: [affiliateId], references: [id], onDelete: SetNull)
+  stripeAccountId           String?
+  stripeAccount             StripeAccount?            @relation(fields: [stripeAccountId], references: [id], onDelete: SetNull)
   affiliateCheckoutNameMode String                    @default("CATALOG_RANDOM")
   affiliateCheckoutFixedName String?
-  stripeAccount             StripeAccount?
   template                  DomainTemplate?
   orders                    Order[]
   redirectLogs              RedirectLog[]
   createdAt                 DateTime                  @default(now())
   updatedAt                 DateTime                  @updatedAt
+
+  @@index([stripeAccountId])
 }
 
 model DomainTemplate {
@@ -113,13 +116,12 @@ model DomainTemplate {
 
 model StripeAccount {
   id                 String         @id @default(cuid())
-  landingDomainId    String         @unique
   accountLabel       String
   publishableKey     String?
   secretKeyEncrypted String
   webhookSecret      String
   isActive           Boolean        @default(true)
-  landingDomain      LandingDomain  @relation(fields: [landingDomainId], references: [id], onDelete: Cascade)
+  landingDomains     LandingDomain[]
   paymentSessions    PaymentSession[]
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt

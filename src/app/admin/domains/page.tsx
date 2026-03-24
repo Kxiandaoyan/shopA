@@ -20,8 +20,7 @@ export default async function AdminDomainsPage() {
   const users = await loadAdminUserSummaries();
 
   return (
-    <main className="min-h-screen bg-slate-950 px-8 py-10 text-white">
-      <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl">
         <div className="flex items-end justify-between gap-4">
           <div>
             <div className="text-xs uppercase tracking-[0.24em] text-slate-400">域名配置</div>
@@ -41,15 +40,14 @@ export default async function AdminDomainsPage() {
                 <th className="px-5 py-4">所属分销商</th>
                 <th className="px-5 py-4">模板</th>
                 <th className="px-5 py-4">Stripe 名称策略</th>
-                <th className="px-5 py-4">Stripe</th>
-                <th className="px-5 py-4">Webhook</th>
+                <th className="px-5 py-4">Stripe 账号</th>
                 <th className="px-5 py-4">状态</th>
               </tr>
             </thead>
             <tbody>
               {domains.length === 0 ? (
                 <tr>
-                  <td className="px-5 py-6 text-slate-400" colSpan={8}>
+                  <td className="px-5 py-6 text-slate-400" colSpan={7}>
                     暂无域名数据。
                   </td>
                 </tr>
@@ -68,11 +66,8 @@ export default async function AdminDomainsPage() {
                           : "随机本站商品名"}
                     </td>
                     <td className="px-5 py-4">
-                      {domain.stripeLabel} / {domain.stripeActive ? "已启用" : "未启用"}
-                    </td>
-                    <td className="px-5 py-4 text-xs text-slate-400">
-                      {"stripeWebhookPath" in domain && domain.stripeWebhookPath
-                        ? domain.stripeWebhookPath
+                      {domain.stripeLabel
+                        ? `${domain.stripeLabel} / ${domain.stripeActive ? "已启用" : "未启用"}`
                         : "未配置"}
                     </td>
                     <td className="px-5 py-4">{domain.isActive ? "启用中" : "已停用"}</td>
@@ -83,14 +78,13 @@ export default async function AdminDomainsPage() {
           </table>
         </div>
 
-        <AdminConfigPanel
-          affiliates={affiliates}
-          domains={domains}
-          returnUrls={returnUrls}
-          webhookEndpoints={webhookEndpoints}
-        />
-        <UserManagementPanel affiliates={affiliates} users={users} />
-      </div>
-    </main>
+      <AdminConfigPanel
+        affiliates={affiliates}
+        domains={domains}
+        returnUrls={returnUrls}
+        webhookEndpoints={webhookEndpoints}
+      />
+      <UserManagementPanel affiliates={affiliates} users={users} />
+    </div>
   );
 }

@@ -5,8 +5,8 @@
   "description": "Multi-tenant B2C mall SaaS with domain-based storefront templates and per-domain Stripe accounts.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3001",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",

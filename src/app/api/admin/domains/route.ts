@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     update: {
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"
@@ -113,6 +115,7 @@ export async function PATCH(request: Request) {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
       affiliateId: parsed.data.affiliateId || null,
+      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"
