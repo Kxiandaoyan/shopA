@@ -131,8 +131,8 @@ model StripeAccount {
   id                 String         @id @default(cuid())
   accountLabel       String
   publishableKey     String?
-  secretKeyEncrypted String
-  webhookSecret      String
+  secretKeyEncrypted String?
+  webhookSecret      String?
   isActive           Boolean        @default(true)
   landingDomains     LandingDomain[]
   paymentSessions    PaymentSession[]

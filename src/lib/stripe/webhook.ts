@@ -29,6 +29,11 @@ async function constructWebhookEventForAccount(
     return null;
   }
 
+  // 如果 secretKey 或 webhookSecret 未配置，无法验证 webhook
+  if (!account.secretKeyEncrypted || !account.webhookSecret) {
+    return null;
+  }
+
   try {
     const secretKey = decryptValue(account.secretKeyEncrypted);
     const webhookSecret = decryptValue(account.webhookSecret);

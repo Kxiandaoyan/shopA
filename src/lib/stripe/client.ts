@@ -22,6 +22,11 @@ export async function loadStripeBindingByDomainId(landingDomainId: string): Prom
 
   const stripeAccount = domain.stripeAccount;
 
+  // 如果必要的密钥未配置，返回 null
+  if (!stripeAccount.secretKeyEncrypted || !stripeAccount.webhookSecret) {
+    return null;
+  }
+
   return {
     stripeAccountId: stripeAccount.id,
     accountLabel: stripeAccount.accountLabel,

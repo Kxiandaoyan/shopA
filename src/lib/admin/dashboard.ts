@@ -122,6 +122,7 @@ export async function loadAdminDomainSummaries() {
       hostname: domain.hostname,
       label: domain.label,
       isActive: domain.isActive,
+      affiliateIds: domain.affiliateAssignments.map((a) => a.affiliateId),
       affiliateNames: domain.affiliateAssignments.map((a) => a.affiliate.name).join(", ") || "未分配",
       templateCode: resolveStorefrontTemplate(domain.template?.templateCode),
       affiliateCheckoutNameMode: normalizeAffiliateCheckoutNameMode(
@@ -229,6 +230,27 @@ export async function loadAdminStripeAccountSummaries() {
       domains: account.landingDomains,
       createdAt: account.createdAt.toISOString(),
     }));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadDomainsWithoutStripe() {
+  try {
+    const domains = await db.landingDomain.findMany({
+      where: {
+        stripeAccountId: null,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        hostname: true,
+        label: true,
+      },
+      orderBy: { hostname: "asc" },
+    });
+
+    return domains;
   } catch {
     return [];
   }

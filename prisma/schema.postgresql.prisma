@@ -116,8 +116,8 @@ model StripeAccount {
   landingDomainId    String         @unique
   accountLabel       String
   publishableKey     String?
-  secretKeyEncrypted String
-  webhookSecret      String
+  secretKeyEncrypted String?
+  webhookSecret      String?
   isActive           Boolean        @default(true)
   landingDomain      LandingDomain  @relation(fields: [landingDomainId], references: [id], onDelete: Cascade)
   paymentSessions    PaymentSession[]

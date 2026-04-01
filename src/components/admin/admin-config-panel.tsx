@@ -16,6 +16,7 @@ type DomainSummary = {
   hostname: string;
   label: string;
   isActive: boolean;
+  affiliateIds: string[];
   affiliateNames: string;
   templateCode: string;
   stripeAccountId: string | null;
@@ -46,7 +47,6 @@ type DomainFormState = {
   hostname: string;
   label: string;
   affiliateIds: string[];
-  stripeAccountId: string;
   templateCode: string;
   isActive: boolean;
   editMode: boolean;
@@ -68,7 +68,6 @@ const emptyDomainForm = (): DomainFormState => ({
   hostname: "",
   label: "",
   affiliateIds: [],
-  stripeAccountId: "",
   templateCode: "",
   isActive: true,
   editMode: false,
@@ -78,8 +77,7 @@ const buildDomainForm = (domain: DomainSummary): DomainFormState => ({
   id: domain.id,
   hostname: domain.hostname,
   label: domain.label,
-  affiliateIds: [], // 编辑时需要从API加载关联的分销商
-  stripeAccountId: domain.stripeAccountId ?? "",
+  affiliateIds: domain.affiliateIds,
   templateCode: domain.templateCode,
   isActive: domain.isActive,
   editMode: true,
@@ -339,7 +337,6 @@ export function AdminConfigPanel({
                     hostname: domainForm.hostname,
                     label: domainForm.label,
                     affiliateIds: domainForm.affiliateIds,
-                    stripeAccountId: domainForm.stripeAccountId || null,
                     templateCode: domainForm.templateCode || null,
                     isActive: domainForm.isActive,
                   },
@@ -429,20 +426,6 @@ export function AdminConfigPanel({
               </div>
 
               <select
-                value={domainForm.stripeAccountId}
-                onChange={(event) =>
-                  setDomainForm((current) => ({ ...current, stripeAccountId: event.target.value }))
-                }
-                className="rounded-xl bg-white/10 px-4 py-3 outline-none"
-              >
-                <option value="">暂不分配 Stripe 账号</option>
-                {(stripeAccounts ?? []).map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.accountLabel} {account.isActive ? "" : "(已停用)"}
-                  </option>
-                ))}
-              </select>
-              <select
                 value={domainForm.templateCode}
                 onChange={(event) =>
                   setDomainForm((current) => ({
@@ -467,6 +450,10 @@ export function AdminConfigPanel({
                 />
                 启用该域名
               </label>
+              <div className="space-y-1 text-xs text-slate-400">
+                <p>• Stripe 账号绑定请前往「Stripe 管理」页面操作</p>
+                <p>• 在 Stripe 管理页创建账号时选择绑定此域名，即可自动关联</p>
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -506,9 +493,13 @@ export function AdminConfigPanel({
                         <div className="mt-1 text-xs text-slate-400">
                           分销商: {domain.affiliateNames}
                         </div>
-                        {domain.stripeLabel && (
-                          <div className="mt-1 text-xs text-slate-400">
-                            Stripe: {domain.stripeLabel}
+                        {domain.stripeLabel ? (
+                          <div className="mt-1 text-xs text-emerald-500">
+                            Stripe: {domain.stripeLabel} {domain.stripeActive ? "" : "(已停用)"}
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-xs text-slate-500">
+                            Stripe: 未绑定
                           </div>
                         )}
                       </div>

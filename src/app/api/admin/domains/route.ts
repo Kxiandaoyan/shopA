@@ -9,7 +9,6 @@ const domainCreateSchema = z.object({
   hostname: z.string().trim().min(3),
   label: z.string().trim().min(2),
   affiliateIds: z.array(z.string()).optional().default([]),
-  stripeAccountId: z.string().trim().optional().nullable(),
   templateCode: z.enum(["A", "B", "C"]).optional().nullable(),
   affiliateCheckoutNameMode: z
     .enum(["FIXED", "CATALOG_RANDOM", "SOURCE_PRODUCT"])
@@ -59,7 +58,6 @@ export async function POST(request: Request) {
     where: { hostname: parsed.data.hostname },
     update: {
       label: parsed.data.label,
-      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"
@@ -70,7 +68,6 @@ export async function POST(request: Request) {
     create: {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
-      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"
@@ -163,7 +160,6 @@ export async function PATCH(request: Request) {
     data: {
       hostname: parsed.data.hostname,
       label: parsed.data.label,
-      stripeAccountId: parsed.data.stripeAccountId || null,
       affiliateCheckoutNameMode: parsed.data.affiliateCheckoutNameMode,
       affiliateCheckoutFixedName:
         parsed.data.affiliateCheckoutNameMode === "FIXED"

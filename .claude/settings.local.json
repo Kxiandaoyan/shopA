@@ -5,7 +5,11 @@
       "Bash(npx tsc:*)",
       "Bash(xxd)",
       "Bash(tail-30)",
-      "Bash(tail-40)"
+      "Bash(tail-40)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx prisma:*)"
     ]
   }
 }

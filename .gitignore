@@ -1,13 +1,43 @@
-.next
+# Dependencies
 node_modules
+
+# Build output
+.next
+dist
+build
+
+# Environment files
 .env
 .env.local
 .env.*.local
-coverage
-dist
-prisma/dev.db
-*.log
+
+# Database
 dev.db
+prisma/dev.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local development
 .local-postgres
-.preview.log
-.preview.err.log
+
+# IDE / Editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Test coverage
+coverage
+
+# Claude Code (local only)
+.claude

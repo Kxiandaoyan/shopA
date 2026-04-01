@@ -47,8 +47,8 @@ export const stripeAdminSchema = z.object({
   id: z.string().trim().optional(),
   accountLabel: z.string().trim().min(2),
   publishableKey: z.string().trim().optional().nullable(),
-  secretKey: z.string().trim().min(10),
-  webhookSecret: z.string().trim().min(10),
+  secretKey: z.string().trim().min(10).optional().or(z.literal("")),
+  webhookSecret: z.string().trim().min(10).optional().or(z.literal("")),
   isActive: z.boolean().default(true),
 });
 
